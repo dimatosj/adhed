@@ -1,0 +1,81 @@
+[
+  {
+    "name": "Auto-label health",
+    "description": "Tag health-related issues automatically on creation",
+    "trigger": "issue.created",
+    "conditions": {
+      "type": "or",
+      "conditions": [
+        {"type": "field_contains", "field": "title", "value": "doctor"},
+        {"type": "field_contains", "field": "title", "value": "dentist"},
+        {"type": "field_contains", "field": "title", "value": "gym"},
+        {"type": "field_contains", "field": "title", "value": "medication"},
+        {"type": "field_contains", "field": "title", "value": "vitamin"}
+      ]
+    },
+    "actions": [{"type": "add_label", "label": "health"}],
+    "priority": 100
+  },
+  {
+    "name": "Auto-label home",
+    "description": "Tag home maintenance issues automatically on creation",
+    "trigger": "issue.created",
+    "conditions": {
+      "type": "or",
+      "conditions": [
+        {"type": "field_contains", "field": "title", "value": "faucet"},
+        {"type": "field_contains", "field": "title", "value": "garage"},
+        {"type": "field_contains", "field": "title", "value": "clean"},
+        {"type": "field_contains", "field": "title", "value": "repair"},
+        {"type": "field_contains", "field": "title", "value": "mow"}
+      ]
+    },
+    "actions": [{"type": "add_label", "label": "home"}],
+    "priority": 100
+  },
+  {
+    "name": "WIP limit (5 started)",
+    "description": "Prevent moving more than 5 items to started for the current user",
+    "trigger": "issue.state_changed",
+    "conditions": {
+      "type": "and",
+      "conditions": [
+        {"type": "field_equals", "field": "to_state_type", "value": "started"},
+        {
+          "type": "count_query",
+          "where": {"state_type": ["started"], "assignee": "$current_user"},
+          "operator": ">=",
+          "value": 5
+        }
+      ]
+    },
+    "actions": [{"type": "reject", "message": "WIP limit reached — you already have 5 items in progress. Finish or park something first."}],
+    "priority": 10
+  },
+  {
+    "name": "Triage requires priority",
+    "description": "Require a non-zero priority before moving out of triage",
+    "trigger": "issue.state_changed",
+    "conditions": {
+      "type": "and",
+      "conditions": [
+        {"type": "field_equals", "field": "from_state_type", "value": "triage"},
+        {"type": "field_equals", "field": "priority", "value": 0}
+      ]
+    },
+    "actions": [{"type": "reject", "message": "Set a priority before moving out of triage"}],
+    "priority": 10
+  },
+  {
+    "name": "Urgent creation notification",
+    "description": "Notify when a priority-1 issue is created",
+    "trigger": "issue.created",
+    "conditions": {
+      "type": "field_equals",
+      "field": "priority",
+      "value": 1
+    },
+    "actions": [{"type": "notify", "message": "Urgent item created: {title}", "user_id": "$current_user"}],
+    "priority": 100
+  }
+]
