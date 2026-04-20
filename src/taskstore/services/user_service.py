@@ -1,0 +1,61 @@
+import uuid
+
+from fastapi import HTTPException
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from taskstore.models.enums import TeamRole
+from taskstore.models.user import TeamMembership, User
+from taskstore.schemas.user import UserCreate
+
+
+async def create_or_add_user(
+    db: AsyncSession, team_id: uuid.UUID, data: UserCreate
+) -> tuple[User, TeamRole]:
+    # Check if user with this email already exists
+    result = await db.execute(select(User).where(User.email == data.email))
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        user = User(name=data.name, email=data.email)
+        db.add(user)
+        await db.flush()
+
+    # Check if already a member of this team
+    membership_result = await db.execute(
+        select(TeamMembership).where(
+            TeamMembership.user_id == user.id,
+            TeamMembership.team_id == team_id,
+        )
+    )
+    existing_membership = membership_result.scalar_one_or_none()
+
+    if existing_membership is not None:
+        await db.commit()
+        await db.refresh(user)
+        return user, existing_membership.role
+
+    # Determine role: first member is owner, subsequent are members
+    if data.role is not None:
+        role = data.role
+    else:
+        count_result = await db.execute(
+            select(func.count()).where(TeamMembership.team_id == team_id)
+        )
+        member_count = count_result.scalar()
+        role = TeamRole.OWNER if member_count == 0 else TeamRole.MEMBER
+
+    membership = TeamMembership(user_id=user.id, team_id=team_id, role=role)
+    db.add(membership)
+    await db.commit()
+    await db.refresh(user)
+    return user, role
+
+
+async def list_users(db: AsyncSession, team_id: uuid.UUID) -> list[tuple[User, TeamRole]]:
+    result = await db.execute(
+        select(User, TeamMembership.role)
+        .join(TeamMembership, User.id == TeamMembership.user_id)
+        .where(TeamMembership.team_id == team_id)
+    )
+    return [(row[0], row[1]) for row in result.all()]
