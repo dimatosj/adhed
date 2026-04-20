@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from taskstore.api.deps import get_db  # noqa: F401
+from taskstore.api.setup import router as setup_router
 from taskstore.api.teams import router as teams_router
 from taskstore.api.states import router as states_router
 from taskstore.api.users import router as users_router
@@ -15,6 +16,7 @@ from taskstore.api.summary import router as summary_router
 
 app = FastAPI(title="ADHED", version="0.1.0", description="Headless task management for agents and claws")
 
+app.include_router(setup_router)
 app.include_router(teams_router)
 app.include_router(states_router)
 app.include_router(users_router)
