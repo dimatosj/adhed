@@ -10,7 +10,7 @@ async def test_create_team(client):
     data = resp.json()["data"]
     assert data["name"] == "Acme"
     assert data["key"] == "ACME"
-    assert data["api_key"].startswith("ts_")
+    assert data["api_key"].startswith("adhed_")
     assert data["settings"]["archive_days"] == 30
     assert data["settings"]["triage_enabled"] is True
 

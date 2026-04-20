@@ -13,7 +13,7 @@ import taskstore.models  # noqa: F401 — ensure all models are registered
 
 TEST_DB_URL = os.environ.get(
     "TEST_DATABASE_URL",
-    "postgresql+asyncpg://taskstore:taskstore@localhost:5433/taskstore_test",
+    "postgresql+asyncpg://taskstore:taskstore@localhost:5433/adhed_test",
 )
 
 engine = create_async_engine(TEST_DB_URL, echo=False)

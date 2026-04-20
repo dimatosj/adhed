@@ -1,6 +1,7 @@
 [project]
-name = "taskstore"
+name = "adhed"
 version = "0.1.0"
+description = "ADHED — headless task management for agents and claws"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.0",

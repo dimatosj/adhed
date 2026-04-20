@@ -13,7 +13,7 @@ from taskstore.api.comments import router as comments_router
 from taskstore.api.notifications import router as notifications_router
 from taskstore.api.summary import router as summary_router
 
-app = FastAPI(title="Taskstore", version="0.1.0")
+app = FastAPI(title="ADHED", version="0.1.0", description="Headless task management for agents and claws")
 
 app.include_router(teams_router)
 app.include_router(states_router)

@@ -1,34 +1,34 @@
 services:
-  taskstore-api:
+  adhed-api:
     build: .
     ports:
       - "${API_PORT:-8100}:${API_PORT:-8100}"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://taskstore:taskstore@taskstore-db:5432/taskstore
-      - DATABASE_URL_SYNC=postgresql://taskstore:taskstore@taskstore-db:5432/taskstore
+      - DATABASE_URL=postgresql+asyncpg://adhed:adhed@adhed-db:5432/adhed
+      - DATABASE_URL_SYNC=postgresql://adhed:adhed@adhed-db:5432/adhed
       - API_PORT=${API_PORT:-8100}
       - LOG_LEVEL=${LOG_LEVEL:-info}
     depends_on:
-      taskstore-db:
+      adhed-db:
         condition: service_healthy
     restart: unless-stopped
 
-  taskstore-db:
+  adhed-db:
     image: postgres:16
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - adhed-pgdata:/var/lib/postgresql/data
     environment:
-      - POSTGRES_USER=taskstore
-      - POSTGRES_PASSWORD=taskstore
-      - POSTGRES_DB=taskstore
+      - POSTGRES_USER=adhed
+      - POSTGRES_PASSWORD=adhed
+      - POSTGRES_DB=adhed
     ports:
-      - "5433:5432"
+      - "${DB_PORT:-5433}:5432"
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "taskstore"]
+      test: ["CMD", "pg_isready", "-U", "adhed"]
       interval: 5s
       timeout: 5s
       retries: 5
     restart: unless-stopped
 
 volumes:
-  pgdata:
+  adhed-pgdata:

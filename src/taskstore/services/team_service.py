@@ -15,7 +15,7 @@ async def create_team(db: AsyncSession, data: TeamCreate) -> Team:
     team = Team(
         name=data.name,
         key=data.key.upper(),
-        api_key=f"ts_{secrets.token_hex(32)}",
+        api_key=f"adhed_{secrets.token_hex(32)}",
     )
     db.add(team)
     try:
