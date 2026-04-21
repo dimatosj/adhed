@@ -1,6 +1,8 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from taskstore.api.deps import get_db  # noqa: F401
+from taskstore.api.deps import get_db
 from taskstore.api.setup import router as setup_router
 from taskstore.api.teams import router as teams_router
 from taskstore.api.states import router as states_router
@@ -31,5 +33,16 @@ app.include_router(summary_router)
 
 
 @app.get("/api/v1/health")
-async def health():
+async def health(db: AsyncSession = Depends(get_db)):
+    """Liveness + readiness check.
+
+    Confirms the DB is reachable by running a trivial SELECT. Returns
+    degraded (503) if the DB is unreachable so container orchestrators
+    can restart or drain traffic.
+    """
+    try:
+        await db.execute(text("SELECT 1"))
+    except Exception as exc:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=503, detail=f"database unreachable: {exc}")
     return {"status": "ok"}

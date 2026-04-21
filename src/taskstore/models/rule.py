@@ -1,6 +1,8 @@
 import uuid
 from datetime import datetime
 
+from taskstore.utils.time import now_utc
+
 from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -21,8 +23,8 @@ class Rule(Base):
     conditions: Mapped[dict] = mapped_column(JSONB, nullable=False)
     actions: Mapped[dict] = mapped_column(JSONB, nullable=False)
     priority: Mapped[int] = mapped_column(Integer, default=100)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_utc)
     updated_at: Mapped[datetime] = mapped_column(
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=now_utc,
+        onupdate=now_utc,
     )

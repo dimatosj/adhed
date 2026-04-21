@@ -27,7 +27,10 @@ async def _bootstrap_team_via_setup(client, name, key, email):
 
 
 async def _second_team_as_owner(client, owner_ctx, name, key):
-    """Create an additional team authed as an existing team's OWNER."""
+    """Create an additional team authed as an existing team's OWNER.
+    The caller is auto-added as OWNER of the new team (see
+    team_service.create_team), so returns the team plus the caller's
+    user_id for auth against the new team."""
     resp = await client.post(
         "/api/v1/teams",
         headers={
@@ -37,35 +40,9 @@ async def _second_team_as_owner(client, owner_ctx, name, key):
         json={"name": name, "key": key},
     )
     assert resp.status_code == 201, resp.text
-    return resp.json()["data"]
-
-
-async def _add_owner_to_team(client, team_id, owner_api_key, name, email):
-    """Create a user and manually elevate to OWNER (bypassing API)
-    so they can act as the team's owner in tests."""
-    from sqlalchemy import update as sa_update
-    from taskstore.models.enums import TeamRole
-    from taskstore.models.user import TeamMembership
-    from tests.conftest import TestSessionLocal
-
-    user_resp = await client.post(
-        f"/api/v1/teams/{team_id}/users",
-        headers={"X-API-Key": owner_api_key},
-        json={"name": name, "email": email},
-    )
-    assert user_resp.status_code == 201
-    user = user_resp.json()["data"]
-    async with TestSessionLocal() as session:
-        await session.execute(
-            sa_update(TeamMembership)
-            .where(
-                TeamMembership.team_id == uuid.UUID(team_id),
-                TeamMembership.user_id == uuid.UUID(user["id"]),
-            )
-            .values(role=TeamRole.OWNER)
-        )
-        await session.commit()
-    return user
+    team = resp.json()["data"]
+    # Creator of the new team is automatically its OWNER
+    return {**team, "owner_user_id": owner_ctx["user_id"]}
 
 
 async def _fetch_states(client, team_id, api_key):
@@ -95,20 +72,18 @@ async def two_teams(client):
         "states": a_states,
     }
 
-    # Team B via POST /teams authed as A's owner
+    # Team B via POST /teams authed as A's owner; A's owner is now also
+    # OWNER of team B (per team_service.create_team). B's own API key
+    # is different, so cross-tenant checks still work.
     b_team = await _second_team_as_owner(client, a, "TeamB", "TEAMB")
-    # Add a user to team B and elevate to owner so B can act independently
-    b_owner = await _add_owner_to_team(
-        client, b_team["id"], b_team["api_key"], "B Owner", "b@x.test"
-    )
     b_states = await _fetch_states(client, b_team["id"], b_team["api_key"])
     b = {
         "team_id": b_team["id"],
         "api_key": b_team["api_key"],
-        "user_id": b_owner["id"],
+        "user_id": b_team["owner_user_id"],
         "headers": {
             "X-API-Key": b_team["api_key"],
-            "X-User-Id": b_owner["id"],
+            "X-User-Id": b_team["owner_user_id"],
         },
         "states": b_states,
     }
@@ -172,7 +147,7 @@ async def test_create_issue_rejects_cross_tenant_label_id(client, two_teams):
     a, b = two_teams
     label_resp = await client.post(
         f"/api/v1/teams/{b['team_id']}/labels",
-        headers={"X-API-Key": b["api_key"]},
+        headers=b["headers"],
         json={"name": "b-only"},
     )
     assert label_resp.status_code == 201
@@ -189,11 +164,21 @@ async def test_create_issue_rejects_cross_tenant_label_id(client, two_teams):
 @pytest.mark.asyncio
 async def test_create_issue_rejects_non_member_assignee(client, two_teams):
     a, b = two_teams
-    # Team A tries to assign an issue to team B's user (not a member of A)
+    # Add a user to team B that is NOT a member of team A. Since A's
+    # owner is also auto-added to B, we need a fresh user here.
+    new_user_resp = await client.post(
+        f"/api/v1/teams/{b['team_id']}/users",
+        headers=b["headers"],
+        json={"name": "B-only", "email": "bonly@x.test"},
+    )
+    assert new_user_resp.status_code == 201
+    b_only_user_id = new_user_resp.json()["data"]["id"]
+
+    # Team A tries to assign an issue to a user who's ONLY in team B
     resp = await client.post(
         f"/api/v1/teams/{a['team_id']}/issues",
         headers=a["headers"],
-        json={"title": "x", "assignee_id": b["user_id"]},
+        json={"title": "x", "assignee_id": b_only_user_id},
     )
     assert resp.status_code == 422, resp.text
 
@@ -217,6 +202,32 @@ async def test_update_issue_rejects_cross_tenant_state_id(client, two_teams):
         json={"state_id": b["states"]["started"]["id"]},
     )
     assert patch_resp.status_code == 422, patch_resp.text
+
+
+@pytest.mark.asyncio
+async def test_team_a_key_cannot_read_team_b_resources(client, two_teams):
+    """Regression test for Q2: the verified_team dep must return 403 when
+    the authed team doesn't match the path team_id. Covers the class of
+    endpoints whose manual `if authed_team.id != team_id` checks were
+    consolidated into a single dependency."""
+    a, b = two_teams
+
+    # Team A's API key hitting team B's paths
+    endpoints = [
+        ("GET", f"/api/v1/teams/{b['team_id']}/issues"),
+        ("GET", f"/api/v1/teams/{b['team_id']}/states"),
+        ("GET", f"/api/v1/teams/{b['team_id']}/labels"),
+        ("GET", f"/api/v1/teams/{b['team_id']}/projects"),
+        ("GET", f"/api/v1/teams/{b['team_id']}/rules"),
+        ("GET", f"/api/v1/teams/{b['team_id']}/users"),
+        ("GET", f"/api/v1/teams/{b['team_id']}/audit"),
+        ("GET", f"/api/v1/teams/{b['team_id']}/summary"),
+    ]
+    for method, path in endpoints:
+        resp = await client.request(method, path, headers=a["headers"])
+        assert resp.status_code == 403, (
+            f"{method} {path} with team A's key must return 403, got {resp.status_code}"
+        )
 
 
 @pytest.mark.asyncio

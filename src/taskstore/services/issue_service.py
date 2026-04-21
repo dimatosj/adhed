@@ -165,94 +165,18 @@ async def create_issue(
     data: IssueCreate,
     user_id: uuid.UUID,
 ) -> IssueResponse:
-    state_id = data.state_id
-    if state_id is None:
-        state_id = await _resolve_default_state(db, team)
-    else:
-        await _validate_references(db, team.id, state_id=state_id)
-    await _validate_references(
-        db,
-        team.id,
-        project_id=data.project_id,
-        parent_id=data.parent_id,
-        label_ids=data.label_ids,
-        assignee_id=data.assignee_id,
-    )
+    """Create an issue. Commits when done.
 
-    issue = Issue(
-        team_id=team.id,
-        title=data.title,
-        description=data.description,
-        type=data.type,
-        priority=data.priority,
-        estimate=data.estimate,
-        state_id=state_id,
-        assignee_id=data.assignee_id,
-        project_id=data.project_id,
-        parent_id=data.parent_id,
-        due_date=data.due_date,
-        custom_fields=data.custom_fields,
-        created_by=user_id,
-    )
-    db.add(issue)
-    await db.flush()
-
-    # Attach labels
-    if data.label_ids:
-        for label_id in data.label_ids:
-            db.add(IssueLabel(issue_id=issue.id, label_id=label_id))
-        await db.flush()
-
-    # Load state for rule context
-    state_result = await db.execute(
-        select(WorkflowState).where(WorkflowState.id == state_id)
-    )
-    state = state_result.scalar_one()
-
-    # Build rule context from the newly created issue
-    ctx = RuleContext(
-        issue={
-            "title": issue.title,
-            "description": issue.description,
-            "type": issue.type.value if issue.type else None,
-            "priority": issue.priority,
-            "estimate": issue.estimate,
-            "assignee_id": str(issue.assignee_id) if issue.assignee_id else None,
-            "project_id": str(issue.project_id) if issue.project_id else None,
-            "parent_id": str(issue.parent_id) if issue.parent_id else None,
-            "state": state.name,
-            "state_type": state.type.value,
-            "labels": [],
-        },
-        current_user=str(user_id),
-        to_state=state.name,
-        to_state_type=state.type.value,
-    )
-
-    # Evaluate rules for ISSUE_CREATED
+    Batch creates use ``_create_issue_impl`` directly inside savepoints
+    so a single rejection doesn't abort the whole batch.
+    """
     try:
-        effects = await evaluate_rules(db, team.id, RuleTrigger.ISSUE_CREATED, ctx)
-    except (RuleRejection, RuleEvaluationError) as exc:
+        response = await _create_issue_impl(db, team, data, user_id)
+    except HTTPException:
         await db.rollback()
-        raise HTTPException(
-            status_code=422,
-            detail=Envelope(
-                errors=[ErrorDetail(
-                    rule_id=str(exc.rule_id),
-                    rule_name=exc.rule_name,
-                    message=exc.message,
-                )],
-            ).model_dump(),
-        )
-
-    # Apply non-reject effects
-    if effects:
-        await apply_effects(db, team.id, issue, effects, user_id)
-
-    await record_audit(db, team.id, "issue", issue.id, AuditAction.CREATE, user_id)
+        raise
     await db.commit()
-    await db.refresh(issue)
-    return await _build_response(db, issue)
+    return response
 
 
 async def get_issue(db: AsyncSession, issue_id: uuid.UUID) -> IssueResponse:
@@ -609,7 +533,7 @@ async def batch_create_issues(
         # doesn't roll back previously created issues.
         try:
             async with db.begin_nested():
-                response = await _create_issue_inner(db, team, data, user_id)
+                response = await _create_issue_impl(db, team, data, user_id)
             results.append({"data": response, "error": None})
         except HTTPException as exc:
             # Extract error message from the HTTPException detail
@@ -623,7 +547,7 @@ async def batch_create_issues(
     return results
 
 
-async def _create_issue_inner(
+async def _create_issue_impl(
     db: AsyncSession,
     team: Team,
     data: IssueCreate,

@@ -80,13 +80,26 @@ async def make_team(client, name="Acme", key="ACME"):
     }
 
 
-async def make_user(client, team_id, api_key, name="Alice", email="alice@example.com"):
+async def make_user(
+    client,
+    team_id,
+    api_key,
+    name="Alice",
+    email="alice@example.com",
+    as_user_id=None,
+):
+    # POST /teams/{id}/users requires ADMIN+ since PR 2 — callers must
+    # auth as an existing admin/owner. Most tests call this right after
+    # make_team(), so pass make_team(...)["_setup_user_id"] here.
+    headers = {"X-API-Key": api_key}
+    if as_user_id is not None:
+        headers["X-User-Id"] = as_user_id
     resp = await client.post(
         f"/api/v1/teams/{team_id}/users",
-        headers={"X-API-Key": api_key},
+        headers=headers,
         json={"name": name, "email": email},
     )
-    assert resp.status_code == 201
+    assert resp.status_code == 201, resp.text
     return resp.json()["data"]
 
 

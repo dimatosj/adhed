@@ -44,7 +44,10 @@ async def test_patch_team_does_not_return_api_key(client):
     bootstrap = await _bootstrap(client, name="Patchy", key="PAT")
     patch_resp = await client.patch(
         f"/api/v1/teams/{bootstrap['team_id']}",
-        headers={"X-API-Key": bootstrap["api_key"]},
+        headers={
+            "X-API-Key": bootstrap["api_key"],
+            "X-User-Id": bootstrap["user_id"],
+        },
         json={"name": "Patched"},
     )
     assert patch_resp.status_code == 200

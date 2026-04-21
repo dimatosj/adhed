@@ -8,8 +8,7 @@ async def setup(client):
     team = await make_team(client)
     team_id = team["id"]
     api_key = team["api_key"]
-    user = await make_user(client, team_id, api_key)
-    user_id = user["id"]
+    user_id = team["_setup_user_id"]
     headers = {"X-API-Key": api_key, "X-User-Id": user_id}
     return {
         "team_id": team_id,
@@ -37,7 +36,7 @@ async def test_convert_issue_to_project(client, setup):
     # Convert to project
     convert_resp = await client.post(
         f"/api/v1/issues/{issue_id}/convert-to-project",
-        headers={"X-API-Key": api_key},
+        headers=headers,
     )
     assert convert_resp.status_code == 201
     data = convert_resp.json()["data"]
@@ -55,7 +54,7 @@ async def test_convert_issue_to_project(client, setup):
     # Verify via GET on the project
     proj_resp = await client.get(
         f"/api/v1/projects/{project['id']}",
-        headers={"X-API-Key": api_key},
+        headers=headers,
     )
     assert proj_resp.status_code == 200
     proj_data = proj_resp.json()["data"]

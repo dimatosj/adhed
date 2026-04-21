@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from taskstore.api.deps import get_db, get_team as get_authed_team
+from taskstore.api.deps import get_db, get_team as get_authed_team, verified_team
 from taskstore.models.team import Team
 from taskstore.schemas.common import Envelope
 from taskstore.schemas.summary import SummaryData
@@ -18,12 +18,10 @@ router = APIRouter(tags=["summary"])
 )
 async def get_summary_endpoint(
     team_id: uuid.UUID,
-    authed_team: Team = Depends(get_authed_team),
+    authed_team: Team = Depends(verified_team),
     db: AsyncSession = Depends(get_db),
     x_user_id: str | None = Header(None, alias="X-User-Id"),
 ):
-    if authed_team.id != team_id:
-        raise HTTPException(status_code=403, detail="Forbidden")
 
     user_id = None
     if x_user_id:

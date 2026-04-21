@@ -3,7 +3,12 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from taskstore.api.deps import get_db, get_team as get_authed_team
+from taskstore.api.deps import (
+    get_db,
+    get_team as get_authed_team,
+    verified_team,
+    verified_team_admin,
+)
 from taskstore.models.team import Team
 from taskstore.schemas.common import Envelope, Meta
 from taskstore.schemas.user import UserCreate, UserResponse
@@ -16,11 +21,9 @@ router = APIRouter(prefix="/api/v1/teams", tags=["users"])
 async def create_user_endpoint(
     team_id: uuid.UUID,
     data: UserCreate,
-    authed_team: Team = Depends(get_authed_team),
+    authed_team: Team = Depends(verified_team_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    if authed_team.id != team_id:
-        raise HTTPException(status_code=403, detail="Forbidden")
     user, role = await create_or_add_user(db, team_id, data)
     response = UserResponse(
         id=user.id,
@@ -35,11 +38,9 @@ async def create_user_endpoint(
 @router.get("/{team_id}/users", response_model=Envelope[list[UserResponse]])
 async def list_users_endpoint(
     team_id: uuid.UUID,
-    authed_team: Team = Depends(get_authed_team),
+    authed_team: Team = Depends(verified_team),
     db: AsyncSession = Depends(get_db),
 ):
-    if authed_team.id != team_id:
-        raise HTTPException(status_code=403, detail="Forbidden")
     members = await list_users(db, team_id)
     data = [
         UserResponse(

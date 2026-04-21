@@ -43,10 +43,11 @@ async def test_post_teams_as_member_rejected(client):
     api_key = first["api_key"]
     team_id = first["team_id"]
 
-    # Add a second user (role not accepted from request body)
+    # Add a second user (role not accepted from request body).
+    # Adding members is ADMIN+ — auth as the setup OWNER.
     member_resp = await client.post(
         f"/api/v1/teams/{team_id}/users",
-        headers={"X-API-Key": api_key},
+        headers={"X-API-Key": api_key, "X-User-Id": first["user_id"]},
         json={"name": "Member", "email": "m@x.test"},
     )
     assert member_resp.status_code == 201
@@ -104,7 +105,7 @@ async def test_user_create_rejects_role_field(client):
 
     resp = await client.post(
         f"/api/v1/teams/{team_id}/users",
-        headers={"X-API-Key": api_key},
+        headers={"X-API-Key": api_key, "X-User-Id": first["user_id"]},
         json={
             "name": "Sneaky",
             "email": "sneaky@x.test",

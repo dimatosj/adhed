@@ -62,26 +62,78 @@ async def get_current_user(
     return user
 
 
-async def require_owner(
+async def verified_team(
+    team_id: uuid.UUID,
     team: Team = Depends(get_team),
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> User:
-    """Require the caller's membership in the authed team to be OWNER.
+) -> Team:
+    """Require X-API-Key AND verify the path's team_id matches the authed team.
 
-    Used for privileged operations like creating additional teams.
-    Full role-based access control (ADMIN/MEMBER enforcement on other
-    endpoints) is intentionally deferred to a follow-up PR — this dep
-    is only used where the reviewer explicitly approved owner-only
-    gating (C1).
+    Replaces the 25+ copies of manual `if authed_team.id != team_id: raise 403`
+    that used to live inside every endpoint.
     """
+    if team.id != team_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return team
+
+
+async def _caller_role(
+    team_id: uuid.UUID, user_id: uuid.UUID, db: AsyncSession
+) -> TeamRole | None:
     result = await db.execute(
         select(TeamMembership.role).where(
-            TeamMembership.team_id == team.id,
-            TeamMembership.user_id == user.id,
+            TeamMembership.team_id == team_id,
+            TeamMembership.user_id == user_id,
         )
     )
-    role = result.scalar_one_or_none()
-    if role != TeamRole.OWNER:
-        raise HTTPException(status_code=403, detail="Owner role required")
-    return user
+    return result.scalar_one_or_none()
+
+
+def require_role_in_authed_team(*required: TeamRole):
+    """Dep factory: require the caller to hold one of the given roles
+    in the authed team (the team identified by X-API-Key).
+
+    Use for endpoints whose path doesn't include {team_id} but which
+    still need a role gate (e.g. POST /teams, PATCH /rules/{rule_id},
+    DELETE /labels/{label_id}).
+    """
+
+    async def dep(
+        team: Team = Depends(get_team),
+        user: User = Depends(get_current_user),
+        db: AsyncSession = Depends(get_db),
+    ) -> User:
+        role = await _caller_role(team.id, user.id, db)
+        if role not in required:
+            raise HTTPException(status_code=403, detail="Insufficient role")
+        return user
+
+    return dep
+
+
+def require_role_in_path_team(*required: TeamRole):
+    """Dep factory: verified_team + role check, for endpoints that take
+    {team_id} in the path.
+    """
+
+    async def dep(
+        team_id: uuid.UUID,
+        team: Team = Depends(get_team),
+        user: User = Depends(get_current_user),
+        db: AsyncSession = Depends(get_db),
+    ) -> Team:
+        if team.id != team_id:
+            raise HTTPException(status_code=403, detail="Forbidden")
+        role = await _caller_role(team.id, user.id, db)
+        if role not in required:
+            raise HTTPException(status_code=403, detail="Insufficient role")
+        return team
+
+    return dep
+
+
+# Named deps for the common role sets. Reusing module-level functions
+# (not constructing new deps per request) keeps FastAPI's dep graph
+# deduplicated.
+require_owner = require_role_in_authed_team(TeamRole.OWNER)
+require_admin_or_owner = require_role_in_authed_team(TeamRole.ADMIN, TeamRole.OWNER)
+verified_team_admin = require_role_in_path_team(TeamRole.ADMIN, TeamRole.OWNER)

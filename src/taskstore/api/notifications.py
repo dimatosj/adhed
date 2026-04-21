@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from taskstore.api.deps import get_db, get_team as get_authed_team
+from taskstore.api.deps import get_db, get_team as get_authed_team, verified_team
 from taskstore.models.notification import Notification
 from taskstore.models.team import Team
 from taskstore.schemas.common import Envelope, Meta
@@ -19,12 +19,10 @@ router = APIRouter(tags=["notifications"])
 )
 async def list_notifications_endpoint(
     team_id: uuid.UUID,
-    authed_team: Team = Depends(get_authed_team),
+    authed_team: Team = Depends(verified_team),
     db: AsyncSession = Depends(get_db),
     user_id: uuid.UUID | None = Query(None),
 ):
-    if authed_team.id != team_id:
-        raise HTTPException(status_code=403, detail="Forbidden")
 
     query = (
         select(Notification)
@@ -72,11 +70,9 @@ async def mark_notification_read_endpoint(
 )
 async def mark_all_read_endpoint(
     team_id: uuid.UUID,
-    authed_team: Team = Depends(get_authed_team),
+    authed_team: Team = Depends(verified_team),
     db: AsyncSession = Depends(get_db),
 ):
-    if authed_team.id != team_id:
-        raise HTTPException(status_code=403, detail="Forbidden")
 
     await db.execute(
         update(Notification)

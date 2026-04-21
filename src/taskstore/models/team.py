@@ -2,6 +2,8 @@ import hashlib
 import uuid
 from datetime import datetime
 
+from taskstore.utils.time import now_utc
+
 from sqlalchemy import String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -29,8 +31,8 @@ class Team(Base):
     key: Mapped[str] = mapped_column(String(10), unique=True, nullable=False)
     api_key_hash: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
     settings: Mapped[dict] = mapped_column(JSONB, default={"archive_days": 30, "triage_enabled": True})
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_utc)
     updated_at: Mapped[datetime] = mapped_column(
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=now_utc,
+        onupdate=now_utc,
     )

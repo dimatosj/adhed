@@ -1,6 +1,8 @@
 import uuid
 from datetime import datetime
 
+from taskstore.utils.time import now_utc
+
 from sqlalchemy import ForeignKey, Index, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -23,4 +25,4 @@ class AuditEntry(Base):
     action: Mapped[AuditAction] = mapped_column(nullable=False)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     changes: Mapped[dict] = mapped_column(JSONB, default={})
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_utc)

@@ -8,8 +8,7 @@ async def setup(client):
     team = await make_team(client)
     team_id = team["id"]
     api_key = team["api_key"]
-    user = await make_user(client, team_id, api_key)
-    user_id = user["id"]
+    user_id = team["_setup_user_id"]
     headers = {"X-API-Key": api_key, "X-User-Id": user_id}
     states = await get_states_by_type(client, team_id, api_key)
     return {
@@ -24,12 +23,13 @@ async def setup(client):
 
 @pytest.mark.asyncio
 async def test_create_project(client, setup):
+    headers = setup["headers"]
     team_id = setup["team_id"]
     api_key = setup["api_key"]
 
     resp = await client.post(
         f"/api/v1/teams/{team_id}/projects",
-        headers={"X-API-Key": api_key},
+        headers=headers,
         json={"name": "Project Alpha", "description": "First project"},
     )
     assert resp.status_code == 201
@@ -42,23 +42,24 @@ async def test_create_project(client, setup):
 
 @pytest.mark.asyncio
 async def test_list_projects(client, setup):
+    headers = setup["headers"]
     team_id = setup["team_id"]
     api_key = setup["api_key"]
 
     await client.post(
         f"/api/v1/teams/{team_id}/projects",
-        headers={"X-API-Key": api_key},
+        headers=headers,
         json={"name": "Project A"},
     )
     await client.post(
         f"/api/v1/teams/{team_id}/projects",
-        headers={"X-API-Key": api_key},
+        headers=headers,
         json={"name": "Project B"},
     )
 
     resp = await client.get(
         f"/api/v1/teams/{team_id}/projects",
-        headers={"X-API-Key": api_key},
+        headers=headers,
     )
     assert resp.status_code == 200
     body = resp.json()
@@ -76,7 +77,7 @@ async def test_get_project_with_issue_counts(client, setup):
     # Create project
     proj_resp = await client.post(
         f"/api/v1/teams/{team_id}/projects",
-        headers={"X-API-Key": api_key},
+        headers=headers,
         json={"name": "Counted Project"},
     )
     assert proj_resp.status_code == 201
@@ -101,7 +102,7 @@ async def test_get_project_with_issue_counts(client, setup):
     # Get project with counts
     get_resp = await client.get(
         f"/api/v1/projects/{project_id}",
-        headers={"X-API-Key": api_key},
+        headers=headers,
     )
     assert get_resp.status_code == 200
     data = get_resp.json()["data"]
@@ -120,7 +121,7 @@ async def test_delete_project_with_issues_fails(client, setup):
     # Create project
     proj_resp = await client.post(
         f"/api/v1/teams/{team_id}/projects",
-        headers={"X-API-Key": api_key},
+        headers=headers,
         json={"name": "Has Issues"},
     )
     assert proj_resp.status_code == 201
@@ -136,20 +137,21 @@ async def test_delete_project_with_issues_fails(client, setup):
     # Delete should fail with 409
     del_resp = await client.delete(
         f"/api/v1/projects/{project_id}",
-        headers={"X-API-Key": api_key},
+        headers=headers,
     )
     assert del_resp.status_code == 409
 
 
 @pytest.mark.asyncio
 async def test_delete_empty_project(client, setup):
+    headers = setup["headers"]
     team_id = setup["team_id"]
     api_key = setup["api_key"]
 
     # Create project
     proj_resp = await client.post(
         f"/api/v1/teams/{team_id}/projects",
-        headers={"X-API-Key": api_key},
+        headers=headers,
         json={"name": "Empty Project"},
     )
     assert proj_resp.status_code == 201
@@ -158,6 +160,6 @@ async def test_delete_empty_project(client, setup):
     # Delete should succeed
     del_resp = await client.delete(
         f"/api/v1/projects/{project_id}",
-        headers={"X-API-Key": api_key},
+        headers=headers,
     )
     assert del_resp.status_code == 204

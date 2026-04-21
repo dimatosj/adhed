@@ -1,6 +1,8 @@
 import uuid
 from datetime import datetime
 
+from taskstore.utils.time import now_utc
+
 from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -18,8 +20,8 @@ class Project(Base):
     description: Mapped[str | None] = mapped_column(Text)
     state: Mapped[ProjectState] = mapped_column(default=ProjectState.PLANNED)
     lead_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_utc)
     updated_at: Mapped[datetime] = mapped_column(
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=now_utc,
+        onupdate=now_utc,
     )

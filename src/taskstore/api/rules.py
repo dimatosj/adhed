@@ -3,8 +3,16 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from taskstore.api.deps import get_db, get_team as get_authed_team
+from taskstore.api.deps import (
+    get_current_user,
+    get_db,
+    get_team as get_authed_team,
+    require_admin_or_owner,
+    verified_team,
+    verified_team_admin,
+)
 from taskstore.models.team import Team
+from taskstore.models.user import User
 from taskstore.schemas.common import Envelope, Meta
 from taskstore.schemas.rule import RuleCreate, RuleResponse, RuleUpdate
 from taskstore.services.rule_service import (
@@ -26,12 +34,11 @@ router = APIRouter(tags=["rules"])
 async def create_rule_endpoint(
     team_id: uuid.UUID,
     data: RuleCreate,
-    authed_team: Team = Depends(get_authed_team),
+    authed_team: Team = Depends(verified_team_admin),
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if authed_team.id != team_id:
-        raise HTTPException(status_code=403, detail="Forbidden")
-    rule = await create_rule(db, team_id, data)
+    rule = await create_rule(db, team_id, data, user_id=user.id)
     return Envelope(data=RuleResponse.model_validate(rule))
 
 
@@ -41,11 +48,9 @@ async def create_rule_endpoint(
 )
 async def list_rules_endpoint(
     team_id: uuid.UUID,
-    authed_team: Team = Depends(get_authed_team),
+    authed_team: Team = Depends(verified_team),
     db: AsyncSession = Depends(get_db),
 ):
-    if authed_team.id != team_id:
-        raise HTTPException(status_code=403, detail="Forbidden")
     rules = await list_rules(db, team_id)
     return Envelope(
         data=[RuleResponse.model_validate(r) for r in rules],
@@ -61,12 +66,13 @@ async def update_rule_endpoint(
     rule_id: uuid.UUID,
     data: RuleUpdate,
     authed_team: Team = Depends(get_authed_team),
+    caller: User = Depends(require_admin_or_owner),
     db: AsyncSession = Depends(get_db),
 ):
     rule = await get_rule(db, rule_id)
     if rule.team_id != authed_team.id:
         raise HTTPException(status_code=403, detail="Forbidden")
-    rule = await update_rule(db, rule_id, data)
+    rule = await update_rule(db, rule_id, data, user_id=caller.id)
     return Envelope(data=RuleResponse.model_validate(rule))
 
 
@@ -77,9 +83,10 @@ async def update_rule_endpoint(
 async def delete_rule_endpoint(
     rule_id: uuid.UUID,
     authed_team: Team = Depends(get_authed_team),
+    caller: User = Depends(require_admin_or_owner),
     db: AsyncSession = Depends(get_db),
 ):
     rule = await get_rule(db, rule_id)
     if rule.team_id != authed_team.id:
         raise HTTPException(status_code=403, detail="Forbidden")
-    await delete_rule(db, rule_id)
+    await delete_rule(db, rule_id, user_id=caller.id)

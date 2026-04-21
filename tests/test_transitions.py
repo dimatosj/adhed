@@ -10,8 +10,7 @@ async def setup(client):
     team = await make_team(client)
     team_id = team["id"]
     api_key = team["api_key"]
-    user = await make_user(client, team_id, api_key)
-    user_id = user["id"]
+    user_id = team["_setup_user_id"]
     headers = {"X-API-Key": api_key, "X-User-Id": user_id}
     states = await get_states_by_type(client, team_id, api_key)
     return {
