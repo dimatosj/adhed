@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, field_validator
 
 from taskstore.models.enums import TeamRole
 
@@ -18,7 +18,14 @@ class UserCreate(BaseModel):
     model_config = {"extra": "forbid"}
 
     name: str
-    email: str
+    email: EmailStr
+
+    @field_validator("email", mode="after")
+    @classmethod
+    def _lowercase(cls, v: str) -> str:
+        # Case-insensitive dedup — Alice@X.com and alice@x.com must
+        # resolve to the same user.
+        return v.lower()
 
 
 class MembershipUpdate(BaseModel):

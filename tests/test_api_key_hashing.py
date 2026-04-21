@@ -9,7 +9,7 @@ from taskstore.models.team import Team
 from tests.conftest import TestSessionLocal
 
 
-async def _bootstrap(client, name="Secret", key="SEC", email="s@x.test"):
+async def _bootstrap(client, name="Secret", key="SEC", email="s@example.com"):
     resp = await client.post(
         "/api/v1/setup",
         json={
@@ -116,7 +116,7 @@ async def test_setup_response_returns_plaintext_key(client):
             "team_name": "Home",
             "team_key": "HOME",
             "user_name": "Jane",
-            "user_email": "jane@x.test",
+            "user_email": "jane@example.com",
         },
     )
     assert resp.status_code == 201

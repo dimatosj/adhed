@@ -36,12 +36,12 @@ async def _three_role_fixture(client):
 
     admin = await make_user(
         client, team_id, api_key,
-        name="Admin", email="admin@x.test",
+        name="Admin", email="admin@example.com",
         as_user_id=owner_id,
     )
     member = await make_user(
         client, team_id, api_key,
-        name="Member", email="member@x.test",
+        name="Member", email="member@example.com",
         as_user_id=owner_id,
     )
 
@@ -160,7 +160,7 @@ async def test_member_cannot_add_member(client, roles):
     resp = await client.post(
         f"/api/v1/teams/{roles['team_id']}/users",
         headers=roles["member_headers"],
-        json={"name": "Intruder", "email": "intruder@x.test"},
+        json={"name": "Intruder", "email": "intruder@example.com"},
     )
     assert resp.status_code == 403
 

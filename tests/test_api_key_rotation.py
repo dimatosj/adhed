@@ -67,7 +67,7 @@ async def test_rotate_requires_owner(client):
     # Add a MEMBER user, try rotating as them
     member = await make_user(
         client, team["id"], team["api_key"],
-        name="Kristen", email="k@x.test",
+        name="Kristen", email="k@example.com",
         as_user_id=team["_setup_user_id"],
     )
     member_headers = {"X-API-Key": team["api_key"], "X-User-Id": member["id"]}

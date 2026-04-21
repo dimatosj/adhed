@@ -13,6 +13,8 @@ anyio==4.13.0
 asyncpg==0.31.0
 certifi==2026.2.25
 click==8.3.2
+dnspython==2.8.0
+email-validator==2.3.0
 fastapi==0.136.0
 greenlet==3.4.0
 h11==0.16.0

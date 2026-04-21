@@ -8,6 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
+# Columns allowed in `?sort=` query parameter. Shared with schemas
+# so OpenAPI docs stay consistent with runtime behaviour.
+ISSUE_SORT_COLUMNS = frozenset({"created_at", "updated_at", "priority", "due_date"})
+
 from taskstore.engine.audit import compute_diff, record_audit
 from taskstore.engine.transitions import is_valid_transition
 from taskstore.models.enums import AuditAction, IssueType, ProjectState, RuleTrigger, StateType
@@ -509,8 +513,7 @@ async def list_issues(
         count_query = count_query.where(and_(*filters))
 
     # Sort
-    allowed_sorts = {"created_at", "updated_at", "priority", "due_date"}
-    sort_col = sort if sort in allowed_sorts else "created_at"
+    sort_col = sort if sort in ISSUE_SORT_COLUMNS else "created_at"
     col = getattr(Issue, sort_col)
     if order == "asc":
         query = query.order_by(col.asc())

@@ -3,7 +3,7 @@ import pytest
 from taskstore.models.enums import StateType
 
 
-async def bootstrap(client, name="Acme", key="acme", email="a@x.test"):
+async def bootstrap(client, name="Acme", key="acme", email="a@example.com"):
     """Bootstrap a team via /setup (first-team path, no auth required)."""
     resp = await client.post(
         "/api/v1/setup",

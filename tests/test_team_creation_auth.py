@@ -11,7 +11,7 @@ be able to mint an OWNER membership via POST /teams/{id}/users.
 import pytest
 
 
-async def _setup_first_team(client, email="founder@x.test"):
+async def _setup_first_team(client, email="founder@example.com"):
     """Use /setup to create the first team + owner user."""
     resp = await client.post(
         "/api/v1/setup",
@@ -48,7 +48,7 @@ async def test_post_teams_as_member_rejected(client):
     member_resp = await client.post(
         f"/api/v1/teams/{team_id}/users",
         headers={"X-API-Key": api_key, "X-User-Id": first["user_id"]},
-        json={"name": "Member", "email": "m@x.test"},
+        json={"name": "Member", "email": "m@example.com"},
     )
     assert member_resp.status_code == 201
     member_id = member_resp.json()["data"]["id"]
@@ -88,7 +88,7 @@ async def test_setup_refuses_when_teams_exist(client):
             "team_name": "Second",
             "team_key": "SEC",
             "user_name": "X",
-            "user_email": "x@x.test",
+            "user_email": "x@example.com",
         },
     )
     assert resp.status_code == 409
@@ -108,7 +108,7 @@ async def test_user_create_rejects_role_field(client):
         headers={"X-API-Key": api_key, "X-User-Id": first["user_id"]},
         json={
             "name": "Sneaky",
-            "email": "sneaky@x.test",
+            "email": "sneaky@example.com",
             "role": "owner",  # must not elevate
         },
     )

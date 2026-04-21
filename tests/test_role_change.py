@@ -21,7 +21,7 @@ async def test_owner_promotes_member_to_admin(client):
     team, headers = await _bootstrap(client)
     member = await make_user(
         client, team["id"], team["api_key"],
-        name="Alex", email="a@x.test",
+        name="Alex", email="a@example.com",
         as_user_id=team["_setup_user_id"],
     )
     assert member["role"] == "member"
@@ -40,7 +40,7 @@ async def test_non_owner_cannot_change_roles(client):
     team, owner_headers = await _bootstrap(client)
     member = await make_user(
         client, team["id"], team["api_key"],
-        name="Alex", email="a@x.test",
+        name="Alex", email="a@example.com",
         as_user_id=team["_setup_user_id"],
     )
     member_headers = {"X-API-Key": team["api_key"], "X-User-Id": member["id"]}
@@ -73,7 +73,7 @@ async def test_can_demote_owner_when_another_owner_exists(client):
     team, headers = await _bootstrap(client)
     second = await make_user(
         client, team["id"], team["api_key"],
-        name="Bea", email="b@x.test",
+        name="Bea", email="b@example.com",
         as_user_id=team["_setup_user_id"],
     )
     # Promote bea to owner
@@ -98,7 +98,7 @@ async def test_role_change_is_audited(client):
     team, headers = await _bootstrap(client)
     member = await make_user(
         client, team["id"], team["api_key"],
-        name="Alex", email="a@x.test",
+        name="Alex", email="a@example.com",
         as_user_id=team["_setup_user_id"],
     )
     await client.patch(

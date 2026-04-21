@@ -34,6 +34,8 @@ async def get_team(
     x_api_key: str | None = Header(None, alias="X-API-Key"),
     db: AsyncSession = Depends(get_db),
 ) -> Team:
+    import secrets
+
     client_ip = request.client.host if request.client else "unknown"
     if not x_api_key:
         logger.warning(
@@ -41,11 +43,17 @@ async def get_team(
             extra={"client_ip": client_ip, "path": request.url.path},
         )
         raise HTTPException(status_code=401, detail="Missing API key")
+
+    # Hash the submitted key, look it up by hash. Belt + braces: after
+    # the B-tree hit, verify the stored hash matches with a constant-
+    # time compare. Indexed lookup on a random 256-bit hash is already
+    # not realistically timing-attackable, but compare_digest is free.
+    submitted_hash = hash_api_key(x_api_key)
     result = await db.execute(
-        select(Team).where(Team.api_key_hash == hash_api_key(x_api_key))
+        select(Team).where(Team.api_key_hash == submitted_hash)
     )
     team = result.scalar_one_or_none()
-    if not team:
+    if team is None or not secrets.compare_digest(team.api_key_hash, submitted_hash):
         logger.warning(
             "auth_invalid_api_key",
             extra={"client_ip": client_ip, "path": request.url.path},

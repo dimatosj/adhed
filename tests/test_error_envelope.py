@@ -82,7 +82,7 @@ async def test_409_conflict_is_envelope(client):
             "team_name": "First",
             "team_key": "FIRST",
             "user_name": "a",
-            "user_email": "a@x.test",
+            "user_email": "a@example.com",
         },
     )
     resp = await client.post(
@@ -91,7 +91,7 @@ async def test_409_conflict_is_envelope(client):
             "team_name": "Second",
             "team_key": "SECOND",
             "user_name": "b",
-            "user_email": "b@x.test",
+            "user_email": "b@example.com",
         },
     )
     assert resp.status_code == 409

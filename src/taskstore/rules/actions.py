@@ -6,10 +6,16 @@ Messages support template variables: {title}, {priority}, {assignee}, {state}, {
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
 from taskstore.rules.context import RuleContext
+
+# Placeholder pattern compiled once. re.sub is single-pass — user-
+# provided field values that happen to contain "{other_placeholder}"
+# are NOT re-expanded, unlike the previous chained str.replace.
+_TEMPLATE_RE = re.compile(r"\{(\w+)\}")
 
 # Fields that `set_field` actions are allowed to modify on an Issue.
 # Anything not in this set would let a rule author escalate privileges
@@ -59,18 +65,23 @@ class Effect:
 
 
 def _render_template(template: str, ctx: RuleContext) -> str:
-    """Replace template variables with values from context."""
+    """Replace template variables with values from context.
+
+    Single-pass regex substitution: values that happen to contain
+    strings like ``{priority}`` are NOT re-expanded. Unknown
+    placeholders pass through unchanged.
+    """
     replacements = {
-        "title": ctx.issue.get("title", ""),
+        "title": str(ctx.issue.get("title", "")),
         "priority": str(ctx.issue.get("priority", "")),
         "assignee": str(ctx.issue.get("assignee_id", "")),
         "state": ctx.to_state or ctx.issue.get("state", ""),
         "project": str(ctx.issue.get("project_id", "")),
     }
-    result = template
-    for key, value in replacements.items():
-        result = result.replace(f"{{{key}}}", str(value))
-    return result
+    return _TEMPLATE_RE.sub(
+        lambda m: replacements.get(m.group(1), m.group(0)),
+        template,
+    )
 
 
 def prepare_action(action: dict, ctx: RuleContext) -> Effect:

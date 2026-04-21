@@ -21,6 +21,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Request body size cap** at 413. Configurable via `MAX_BODY_BYTES`
   (default 1 MiB). Rejects before endpoint logic runs.
 
+### Fixed
+- **Email validation** — user/setup `email` fields now use Pydantic's
+  `EmailStr` (rejects `not-an-email`). Emails are lowercased at write
+  so `John@X.com` and `john@x.com` dedupe to the same user (Q12).
+- **`custom_fields` size cap** at 16 KiB per issue. Previously
+  unbounded JSONB allowed trivial DB bloat (M8).
+- **Rule action template rendering** is now a single-pass regex
+  substitution. Previously `str.replace` chaining re-expanded
+  user-supplied content containing `{placeholder}` strings (S9).
+
+### Changed
+- **API key verification** uses `secrets.compare_digest` on the
+  hash as belt-and-braces over the indexed lookup (S11).
+- **`get_settings()` is `@lru_cache`'d** — standard pydantic-
+  settings pattern, avoids re-parsing env on every call (L1).
+- **Health endpoint moved into its own router** (`api/health.py`)
+  for consistency with the rest of the API (Q15).
+- **Issue sort-column whitelist** extracted as a module-level
+  `ISSUE_SORT_COLUMNS` constant for OpenAPI consistency (Q17).
+- **Dockerfile split into three cache layers** — deps, metadata,
+  app code — so code-edit rebuilds drop from ~90s to ~5s (Q18).
+
 ## [0.1.0] — Pre-launch hardening
 
 First public-ready release.
