@@ -12,11 +12,82 @@ from taskstore.models.issue import Issue, IssueLabel
 from taskstore.models.label import Label
 from taskstore.models.project import Project
 from taskstore.models.team import Team
+from taskstore.models.user import TeamMembership
 from taskstore.models.workflow_state import WorkflowState
 from taskstore.rules.context import RuleContext
-from taskstore.rules.evaluator import RuleRejection, apply_effects, evaluate_rules
+from taskstore.rules.evaluator import (
+    RuleEvaluationError,
+    RuleRejection,
+    apply_effects,
+    evaluate_rules,
+)
 from taskstore.schemas.common import Envelope, ErrorDetail
 from taskstore.schemas.issue import IssueCreate, IssueResponse, IssueStateInfo, IssueLabelInfo, IssueUpdate
+
+
+async def _validate_references(
+    db: AsyncSession,
+    team_id: uuid.UUID,
+    *,
+    state_id: uuid.UUID | None = None,
+    project_id: uuid.UUID | None = None,
+    parent_id: uuid.UUID | None = None,
+    label_ids: list[uuid.UUID] | None = None,
+    assignee_id: uuid.UUID | None = None,
+) -> None:
+    """Verify every FK on an Issue write belongs to the authed team.
+
+    FK constraints in Postgres are global (e.g. project_id references
+    projects.id with no team scoping), so without this check an API-key
+    holder for team A could reference team B's resources. Each non-None
+    argument is resolved and its team_id compared.
+
+    Raises HTTPException(422) on any mismatch. Callers should invoke
+    this before creating/updating an Issue.
+    """
+    if state_id is not None:
+        row = await db.execute(
+            select(WorkflowState.team_id).where(WorkflowState.id == state_id)
+        )
+        owner = row.scalar_one_or_none()
+        if owner is None or owner != team_id:
+            raise HTTPException(status_code=422, detail="state_id is not in this team")
+
+    if project_id is not None:
+        row = await db.execute(
+            select(Project.team_id).where(Project.id == project_id)
+        )
+        owner = row.scalar_one_or_none()
+        if owner is None or owner != team_id:
+            raise HTTPException(status_code=422, detail="project_id is not in this team")
+
+    if parent_id is not None:
+        row = await db.execute(
+            select(Issue.team_id).where(Issue.id == parent_id)
+        )
+        owner = row.scalar_one_or_none()
+        if owner is None or owner != team_id:
+            raise HTTPException(status_code=422, detail="parent_id is not in this team")
+
+    if label_ids:
+        row = await db.execute(
+            select(func.count()).select_from(Label).where(
+                Label.id.in_(label_ids), Label.team_id == team_id
+            )
+        )
+        found = row.scalar_one()
+        if found != len(set(label_ids)):
+            raise HTTPException(status_code=422, detail="one or more label_ids are not in this team")
+
+    if assignee_id is not None:
+        row = await db.execute(
+            select(TeamMembership.user_id).where(
+                TeamMembership.team_id == team_id,
+                TeamMembership.user_id == assignee_id,
+            )
+        )
+        if row.scalar_one_or_none() is None:
+            raise HTTPException(status_code=422, detail="assignee_id is not a member of this team")
 
 
 async def _resolve_default_state(db: AsyncSession, team: Team) -> uuid.UUID:
@@ -97,6 +168,16 @@ async def create_issue(
     state_id = data.state_id
     if state_id is None:
         state_id = await _resolve_default_state(db, team)
+    else:
+        await _validate_references(db, team.id, state_id=state_id)
+    await _validate_references(
+        db,
+        team.id,
+        project_id=data.project_id,
+        parent_id=data.parent_id,
+        label_ids=data.label_ids,
+        assignee_id=data.assignee_id,
+    )
 
     issue = Issue(
         team_id=team.id,
@@ -151,7 +232,7 @@ async def create_issue(
     # Evaluate rules for ISSUE_CREATED
     try:
         effects = await evaluate_rules(db, team.id, RuleTrigger.ISSUE_CREATED, ctx)
-    except RuleRejection as exc:
+    except (RuleRejection, RuleEvaluationError) as exc:
         await db.rollback()
         raise HTTPException(
             status_code=422,
@@ -200,6 +281,15 @@ async def update_issue(
     issue = await get_issue_raw(db, issue_id)
 
     update_data = data.model_dump(exclude_unset=True)
+
+    # Cross-tenant reference validation — only check fields being changed.
+    await _validate_references(
+        db,
+        issue.team_id,
+        state_id=update_data.get("state_id"),
+        project_id=update_data.get("project_id"),
+        assignee_id=update_data.get("assignee_id"),
+    )
 
     old_state = None
     new_state = None
@@ -292,7 +382,7 @@ async def update_issue(
         )
         all_effects.extend(effects)
 
-    except RuleRejection as exc:
+    except (RuleRejection, RuleEvaluationError) as exc:
         await db.rollback()
         raise HTTPException(
             status_code=422,
@@ -544,6 +634,16 @@ async def _create_issue_inner(
     state_id = data.state_id
     if state_id is None:
         state_id = await _resolve_default_state(db, team)
+    else:
+        await _validate_references(db, team.id, state_id=state_id)
+    await _validate_references(
+        db,
+        team.id,
+        project_id=data.project_id,
+        parent_id=data.parent_id,
+        label_ids=data.label_ids,
+        assignee_id=data.assignee_id,
+    )
 
     issue = Issue(
         team_id=team.id,
@@ -598,7 +698,7 @@ async def _create_issue_inner(
     # Evaluate rules for ISSUE_CREATED
     try:
         effects = await evaluate_rules(db, team.id, RuleTrigger.ISSUE_CREATED, ctx)
-    except RuleRejection as exc:
+    except (RuleRejection, RuleEvaluationError) as exc:
         raise HTTPException(
             status_code=422,
             detail=Envelope(

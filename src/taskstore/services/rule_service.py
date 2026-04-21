@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from taskstore.models.rule import Rule
+from taskstore.rules.actions import validate_actions
 from taskstore.schemas.rule import RuleCreate, RuleUpdate
 
 
@@ -12,6 +13,11 @@ async def create_rule(db: AsyncSession, team_id: uuid.UUID, data: RuleCreate) ->
     actions = data.actions
     if isinstance(actions, dict):
         actions = [actions]
+
+    try:
+        validate_actions(actions)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
     rule = Rule(
         team_id=team_id,
@@ -54,6 +60,12 @@ async def update_rule(db: AsyncSession, rule_id: uuid.UUID, data: RuleUpdate) ->
     # Normalise actions to list
     if "actions" in update_data and isinstance(update_data["actions"], dict):
         update_data["actions"] = [update_data["actions"]]
+
+    if "actions" in update_data:
+        try:
+            validate_actions(update_data["actions"])
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
 
     for field, value in update_data.items():
         setattr(rule, field, value)

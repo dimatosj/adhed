@@ -1,20 +1,6 @@
 import pytest
 
-
-async def make_team(client, name="Audit Team", key="audit"):
-    resp = await client.post("/api/v1/teams", json={"name": name, "key": key})
-    assert resp.status_code == 201
-    return resp.json()["data"]
-
-
-async def make_user(client, team_id, api_key, name="Carol", email="carol@example.com"):
-    resp = await client.post(
-        f"/api/v1/teams/{team_id}/users",
-        headers={"X-API-Key": api_key},
-        json={"name": name, "email": email},
-    )
-    assert resp.status_code == 201
-    return resp.json()["data"]
+from tests.conftest import make_team, make_user
 
 
 @pytest.fixture

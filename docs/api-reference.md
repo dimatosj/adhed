@@ -53,8 +53,10 @@ Creates the initial team and owner user. Call once after first deploy.
 | `team_key` | string | yes | Short key (uppercase letters, used in issue prefixes) |
 | `user_name` | string | yes | Name of the owner user |
 | `user_email` | string | yes | Email of the owner user |
+| `include_default_labels` | boolean | no | Seed 14 GTD-style default labels (default: `false`) |
 
-**Response (201):**
+**Response (201):** The response includes `api_key` **exactly once** —
+record it, you cannot recover it later (keys are SHA-256 hashed at rest).
 
 ```json
 {
@@ -104,9 +106,11 @@ curl -s "http://localhost:8100/api/v1/health"
 
 ### POST /api/v1/teams
 
-Create a new team.
+Create an additional team. The first team must be created via
+[`/api/v1/setup`](#setup).
 
-**Auth:** X-API-Key
+**Auth:** X-API-Key + X-User-Id (caller must be an OWNER of an
+existing team). Returns `403` if the caller is not an OWNER.
 
 **Request body:**
 
@@ -115,13 +119,16 @@ Create a new team.
 | `name` | string | yes | Team display name |
 | `key` | string | yes | Short team key |
 
-**Response (201):** `Envelope[TeamResponse]`
+**Response (201):** `Envelope[TeamCreateResponse]`. The response
+includes `api_key` **exactly once** — record it, you cannot recover
+it later (keys are SHA-256 hashed at rest).
 
 ```bash
 source .adhed-credentials
 curl -s -X POST "http://localhost:8100/api/v1/teams" \
   -H "Content-Type: application/json" \
   -H "X-API-Key: $API_KEY" \
+  -H "X-User-Id: $USER_ID" \
   -d '{"name": "Work", "key": "WORK"}'
 ```
 
@@ -133,7 +140,7 @@ Get team details.
 
 **Response (200):** `Envelope[TeamResponse]`
 
-TeamResponse fields: `id`, `name`, `key`, `api_key`, `settings` (`archive_days`, `triage_enabled`), `created_at`, `updated_at`.
+TeamResponse fields: `id`, `name`, `key`, `settings` (`archive_days`, `triage_enabled`), `created_at`, `updated_at`. The API key is intentionally **not** returned — it is shown only at creation time.
 
 ```bash
 source .adhed-credentials

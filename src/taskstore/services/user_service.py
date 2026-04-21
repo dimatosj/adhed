@@ -35,15 +35,15 @@ async def create_or_add_user(
         await db.refresh(user)
         return user, existing_membership.role
 
-    # Determine role: first member is owner, subsequent are members
-    if data.role is not None:
-        role = data.role
-    else:
-        count_result = await db.execute(
-            select(func.count()).where(TeamMembership.team_id == team_id)
-        )
-        member_count = count_result.scalar()
-        role = TeamRole.OWNER if member_count == 0 else TeamRole.MEMBER
+    # Role is assigned server-side — first member of a team becomes OWNER,
+    # all subsequent members default to MEMBER. Client-supplied roles are
+    # rejected at the schema layer (see UserCreate) to prevent privilege
+    # escalation.
+    count_result = await db.execute(
+        select(func.count()).where(TeamMembership.team_id == team_id)
+    )
+    member_count = count_result.scalar()
+    role = TeamRole.OWNER if member_count == 0 else TeamRole.MEMBER
 
     membership = TeamMembership(user_id=user.id, team_id=team_id, role=role)
     db.add(membership)

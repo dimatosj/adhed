@@ -6,6 +6,7 @@ Handles count_query and estimate_sum conditions that need DB access.
 
 from __future__ import annotations
 
+import logging
 import uuid
 from typing import Any
 
@@ -19,13 +20,30 @@ from taskstore.models.label import Label
 from taskstore.models.notification import Notification
 from taskstore.models.rule import Rule
 from taskstore.models.workflow_state import WorkflowState
-from taskstore.rules.actions import Effect, prepare_action
+from taskstore.rules.actions import SET_FIELD_ALLOWED, Effect, prepare_action
 from taskstore.rules.conditions import evaluate_condition
 from taskstore.rules.context import RuleContext
+
+logger = logging.getLogger(__name__)
 
 
 class RuleRejection(Exception):
     """Raised when a reject action fires."""
+
+    def __init__(self, rule_id: uuid.UUID, rule_name: str, message: str):
+        self.rule_id = rule_id
+        self.rule_name = rule_name
+        self.message = message
+        super().__init__(message)
+
+
+class RuleEvaluationError(Exception):
+    """Raised when a rule is malformed (e.g. unknown condition type).
+
+    The triggering operation is aborted rather than proceeding with the
+    rule silently skipped — enforcement rules (WIP limits, required fields)
+    are meant to be deterministic, so a broken rule must surface.
+    """
 
     def __init__(self, rule_id: uuid.UUID, rule_name: str, message: str):
         self.rule_id = rule_id
@@ -65,8 +83,20 @@ async def evaluate_rules(
                 cond_result = await _evaluate_condition_with_db(
                     db, conditions, ctx, team_id
                 )
-            except ValueError:
-                continue
+            except ValueError as exc:
+                logger.warning(
+                    "rule_evaluation_failed",
+                    extra={
+                        "rule_id": str(rule.id),
+                        "rule_name": rule.name,
+                        "error": str(exc),
+                    },
+                )
+                raise RuleEvaluationError(
+                    rule_id=rule.id,
+                    rule_name=rule.name,
+                    message=f"Rule is malformed: {exc}",
+                ) from exc
             if not cond_result:
                 continue
 
@@ -77,7 +107,22 @@ async def evaluate_rules(
 
         effects: list[Effect] = []
         for action_def in actions:
-            effect = prepare_action(action_def, ctx)
+            try:
+                effect = prepare_action(action_def, ctx)
+            except (ValueError, KeyError) as exc:
+                logger.warning(
+                    "rule_action_malformed",
+                    extra={
+                        "rule_id": str(rule.id),
+                        "rule_name": rule.name,
+                        "error": str(exc),
+                    },
+                )
+                raise RuleEvaluationError(
+                    rule_id=rule.id,
+                    rule_name=rule.name,
+                    message=f"Rule action is malformed: {exc}",
+                ) from exc
             effects.append(effect)
 
         # Check for reject effects immediately
@@ -106,6 +151,23 @@ async def apply_effects(
         for effect in effect_list:
             if effect.type == "set_field":
                 field_name = effect.params["field"]
+                if field_name not in SET_FIELD_ALLOWED:
+                    # Defense in depth: rule_service validates at write time,
+                    # but a rule could have been inserted before that validation
+                    # existed (e.g. direct DB writes, older rows).
+                    logger.warning(
+                        "set_field_blocked",
+                        extra={
+                            "rule_id": str(rule.id),
+                            "rule_name": rule.name,
+                            "field": field_name,
+                        },
+                    )
+                    raise RuleEvaluationError(
+                        rule_id=rule.id,
+                        rule_name=rule.name,
+                        message=f"set_field target {field_name!r} is not allowed",
+                    )
                 value = effect.params["value"]
                 setattr(issue, field_name, value)
 
@@ -202,8 +264,16 @@ async def _evaluate_condition_with_db(
 async def _build_query_filters(
     where: dict, ctx: RuleContext, team_id: uuid.UUID
 ) -> list:
-    """Build SQLAlchemy filter expressions from a where clause."""
+    """Build SQLAlchemy filter expressions from a where clause.
+
+    Archived issues are excluded by default — WIP limits and similar
+    enforcement rules should reason about live work only. Set
+    ``include_archived: true`` in the condition to opt in.
+    """
     filters: list[Any] = [Issue.team_id == team_id]
+
+    if not where.get("include_archived"):
+        filters.append(Issue.archived_at.is_(None))
 
     if "state_type" in where:
         st = where["state_type"]

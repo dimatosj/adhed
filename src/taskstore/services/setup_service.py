@@ -38,7 +38,7 @@ async def run_setup(db: AsyncSession, data: SetupRequest) -> SetupResponse:
         raise HTTPException(status_code=409, detail="Already set up")
 
     # Create team
-    team = await team_service.create_team(
+    team, plaintext_api_key = await team_service.create_team(
         db, TeamCreate(name=data.team_name, key=data.team_key)
     )
 
@@ -47,17 +47,20 @@ async def run_setup(db: AsyncSession, data: SetupRequest) -> SetupResponse:
         db, team.id, UserCreate(name=data.user_name, email=data.user_email)
     )
 
-    # Create 14 default labels
-    for label_name in DEFAULT_LABELS:
-        label = Label(team_id=team.id, name=label_name)
-        db.add(label)
+    # Default labels are opt-in — they're opinionated GTD-style and not
+    # suitable for every team. Set include_default_labels=true in the
+    # setup request to seed them.
+    if data.include_default_labels:
+        for label_name in DEFAULT_LABELS:
+            label = Label(team_id=team.id, name=label_name)
+            db.add(label)
     await db.commit()
 
     return SetupResponse(
         team_id=team.id,
         team_name=team.name,
         team_key=team.key,
-        api_key=team.api_key,
+        api_key=plaintext_api_key,
         user_id=user.id,
         user_name=user.name,
         user_email=user.email,

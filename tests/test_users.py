@@ -1,10 +1,7 @@
 import pytest
 
+from tests.conftest import make_team
 
-async def make_team(client, name="Acme", key="acme"):
-    resp = await client.post("/api/v1/teams", json={"name": name, "key": key})
-    assert resp.status_code == 201
-    return resp.json()["data"]
 
 
 @pytest.mark.asyncio
@@ -22,7 +19,8 @@ async def test_create_user(client):
     data = resp.json()["data"]
     assert data["name"] == "Alice"
     assert data["email"] == "alice@example.com"
-    assert data["role"] == "owner"
+    # Alice is the second member (setup user was first) → defaults to MEMBER
+    assert data["role"] == "member"
 
 
 @pytest.mark.asyncio
@@ -30,12 +28,6 @@ async def test_create_second_user_is_member(client):
     team = await make_team(client)
     team_id = team["id"]
     api_key = team["api_key"]
-
-    await client.post(
-        f"/api/v1/teams/{team_id}/users",
-        headers={"X-API-Key": api_key},
-        json={"name": "Alice", "email": "alice@example.com"},
-    )
 
     resp = await client.post(
         f"/api/v1/teams/{team_id}/users",
@@ -70,8 +62,9 @@ async def test_list_users(client):
     )
     assert resp.status_code == 200
     body = resp.json()
-    assert len(body["data"]) == 2
-    assert body["meta"]["total"] == 2
+    # Setup user + Alice + Bob
+    assert len(body["data"]) == 3
+    assert body["meta"]["total"] == 3
 
 
 @pytest.mark.asyncio
@@ -94,9 +87,9 @@ async def test_duplicate_email_same_team(client):
     )
     assert resp.status_code == 201
 
-    # Team should still have only 1 member
+    # Setup user + Alice (dedup) = 2
     list_resp = await client.get(
         f"/api/v1/teams/{team_id}/users",
         headers={"X-API-Key": api_key},
     )
-    assert len(list_resp.json()["data"]) == 1
+    assert len(list_resp.json()["data"]) == 2

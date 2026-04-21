@@ -1,10 +1,6 @@
 import pytest
 
-
-async def make_team(client, name="Acme", key="acme"):
-    resp = await client.post("/api/v1/teams", json={"name": name, "key": key})
-    assert resp.status_code == 201
-    return resp.json()["data"]
+from tests.conftest import make_team
 
 
 @pytest.mark.asyncio
