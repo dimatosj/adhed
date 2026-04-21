@@ -11,6 +11,45 @@ from typing import Any
 
 from taskstore.rules.context import RuleContext
 
+# Fields that `set_field` actions are allowed to modify on an Issue.
+# Anything not in this set would let a rule author escalate privileges
+# (e.g. team_id -> cross-tenant move, created_by -> audit forgery,
+# archived_at -> hide/unhide, id -> row corruption).
+SET_FIELD_ALLOWED = frozenset({
+    "priority",
+    "estimate",
+    "assignee_id",
+    "project_id",
+    "due_date",
+    "state_id",
+})
+
+
+def validate_actions(actions: list[dict]) -> None:
+    """Validate a list of action definitions at rule-write time.
+
+    Raises ValueError with a human-readable message if any action is
+    structurally invalid or attempts a forbidden mutation.
+    """
+    if not isinstance(actions, list):
+        raise ValueError("actions must be a list")
+    for idx, action in enumerate(actions):
+        if not isinstance(action, dict):
+            raise ValueError(f"action[{idx}] must be an object")
+        atype = action.get("type")
+        if atype not in _ACTION_HANDLERS:
+            raise ValueError(
+                f"action[{idx}] has unknown type: {atype!r}. "
+                f"Allowed: {sorted(_ACTION_HANDLERS)}"
+            )
+        if atype == "set_field":
+            fname = action.get("field")
+            if fname not in SET_FIELD_ALLOWED:
+                raise ValueError(
+                    f"action[{idx}] set_field target {fname!r} is not allowed. "
+                    f"Allowed fields: {sorted(SET_FIELD_ALLOWED)}"
+                )
+
 
 @dataclass
 class Effect:

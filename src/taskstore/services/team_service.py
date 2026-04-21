@@ -7,15 +7,21 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from taskstore.engine.defaults import seed_default_states
-from taskstore.models.team import Team
+from taskstore.models.team import Team, hash_api_key
 from taskstore.schemas.team import TeamCreate, TeamUpdate
 
 
-async def create_team(db: AsyncSession, data: TeamCreate) -> Team:
+async def create_team(db: AsyncSession, data: TeamCreate) -> tuple[Team, str]:
+    """Create a team. Returns (team, plaintext_api_key).
+
+    The plaintext API key is shown to the caller exactly once — it is
+    NOT recoverable after this. The DB stores only the SHA-256 hash.
+    """
+    plaintext_key = f"adhed_{secrets.token_hex(32)}"
     team = Team(
         name=data.name,
         key=data.key.upper(),
-        api_key=f"adhed_{secrets.token_hex(32)}",
+        api_key_hash=hash_api_key(plaintext_key),
     )
     db.add(team)
     try:
@@ -26,7 +32,7 @@ async def create_team(db: AsyncSession, data: TeamCreate) -> Team:
     await seed_default_states(db, team.id)
     await db.commit()
     await db.refresh(team)
-    return team
+    return team, plaintext_key
 
 
 async def get_team(db: AsyncSession, team_id: uuid.UUID) -> Team:

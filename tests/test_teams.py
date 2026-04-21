@@ -3,25 +3,49 @@ import pytest
 from taskstore.models.enums import StateType
 
 
-@pytest.mark.asyncio
-async def test_create_team(client):
-    resp = await client.post("/api/v1/teams", json={"name": "Acme", "key": "acme"})
+async def bootstrap(client, name="Acme", key="acme", email="a@x.test"):
+    """Bootstrap a team via /setup (first-team path, no auth required)."""
+    resp = await client.post(
+        "/api/v1/setup",
+        json={
+            "team_name": name,
+            "team_key": key,
+            "user_name": "Owner",
+            "user_email": email,
+        },
+    )
     assert resp.status_code == 201
-    data = resp.json()["data"]
-    assert data["name"] == "Acme"
-    assert data["key"] == "ACME"
-    assert data["api_key"].startswith("adhed_")
-    assert data["settings"]["archive_days"] == 30
-    assert data["settings"]["triage_enabled"] is True
+    return resp.json()
 
 
 @pytest.mark.asyncio
-async def test_create_team_seeds_default_states(client):
-    create_resp = await client.post("/api/v1/teams", json={"name": "Seeded", "key": "seed"})
-    assert create_resp.status_code == 201
-    team = create_resp.json()["data"]
-    team_id = team["id"]
-    api_key = team["api_key"]
+async def test_create_team_via_setup(client):
+    """First team is created via /setup (owner + team in one shot)."""
+    data = bootstrap_response = await bootstrap(client)
+    assert data["team_name"] == "Acme"
+    assert data["team_key"] == "ACME"
+    assert data["api_key"].startswith("adhed_")
+
+
+@pytest.mark.asyncio
+async def test_create_second_team_requires_owner(client):
+    """POST /teams requires an OWNER caller — see tests/test_team_creation_auth.py
+    for the full auth matrix. This is just a smoke check."""
+    first = await bootstrap(client)
+    resp = await client.post(
+        "/api/v1/teams",
+        headers={"X-API-Key": first["api_key"], "X-User-Id": first["user_id"]},
+        json={"name": "Second", "key": "SEC"},
+    )
+    assert resp.status_code == 201
+    assert resp.json()["data"]["api_key"].startswith("adhed_")
+
+
+@pytest.mark.asyncio
+async def test_setup_seeds_default_states(client):
+    data = await bootstrap(client, name="Seeded", key="seed")
+    team_id = data["team_id"]
+    api_key = data["api_key"]
 
     states_resp = await client.get(
         f"/api/v1/teams/{team_id}/states",
@@ -45,18 +69,20 @@ async def test_create_team_seeds_default_states(client):
 
 @pytest.mark.asyncio
 async def test_create_team_duplicate_key(client):
-    await client.post("/api/v1/teams", json={"name": "First", "key": "dup"})
-    resp = await client.post("/api/v1/teams", json={"name": "Second", "key": "dup"})
+    first = await bootstrap(client, name="First", key="dup")
+    resp = await client.post(
+        "/api/v1/teams",
+        headers={"X-API-Key": first["api_key"], "X-User-Id": first["user_id"]},
+        json={"name": "Second", "key": "dup"},
+    )
     assert resp.status_code == 409
 
 
 @pytest.mark.asyncio
 async def test_get_team(client):
-    create_resp = await client.post("/api/v1/teams", json={"name": "Getter", "key": "get1"})
-    assert create_resp.status_code == 201
-    team = create_resp.json()["data"]
-    team_id = team["id"]
-    api_key = team["api_key"]
+    data = await bootstrap(client, name="Getter", key="get1")
+    team_id = data["team_id"]
+    api_key = data["api_key"]
 
     get_resp = await client.get(
         f"/api/v1/teams/{team_id}",
@@ -67,15 +93,15 @@ async def test_get_team(client):
     assert fetched["id"] == team_id
     assert fetched["name"] == "Getter"
     assert fetched["key"] == "GET1"
+    # C2: api_key must not be in the GET response
+    assert "api_key" not in fetched
 
 
 @pytest.mark.asyncio
 async def test_update_team_settings(client):
-    create_resp = await client.post("/api/v1/teams", json={"name": "Updater", "key": "upd1"})
-    assert create_resp.status_code == 201
-    team = create_resp.json()["data"]
-    team_id = team["id"]
-    api_key = team["api_key"]
+    data = await bootstrap(client, name="Updater", key="upd1")
+    team_id = data["team_id"]
+    api_key = data["api_key"]
 
     patch_resp = await client.patch(
         f"/api/v1/teams/{team_id}",

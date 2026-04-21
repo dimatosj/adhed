@@ -1,14 +1,32 @@
 """Integration tests for the rules engine with the API."""
 
+import uuid
+
 import pytest
 
 from taskstore.models.enums import StateType
 
 
 async def make_team(client, name="RulesTeam", key="rules"):
-    resp = await client.post("/api/v1/teams", json={"name": name, "key": key})
+    # Bootstrap via /setup (first team; POST /teams now requires OWNER auth).
+    resp = await client.post(
+        "/api/v1/setup",
+        json={
+            "team_name": name,
+            "team_key": key,
+            "user_name": "Setup",
+            "user_email": f"setup-{key}@example.com",
+        },
+    )
     assert resp.status_code == 201
-    return resp.json()["data"]
+    data = resp.json()
+    return {
+        "id": data["team_id"],
+        "name": data["team_name"],
+        "key": data["team_key"],
+        "api_key": data["api_key"],
+        "_setup_user_id": data["user_id"],
+    }
 
 
 async def make_user(client, team_id, api_key, name="Alice", email="alice@rules.test"):
@@ -227,4 +245,188 @@ async def test_rule_crud(client, rules_setup):
         f"/api/v1/teams/{team_id}/rules",
         headers=api_headers,
     )
+    assert list_resp2.status_code == 200
     assert list_resp2.json()["meta"]["total"] == 0
+
+
+@pytest.mark.asyncio
+async def test_broken_rule_fails_loudly(client, rules_setup):
+    """A rule with an unknown condition type must NOT silently skip —
+    the triggering write must fail with an error identifying the broken rule.
+
+    Regression test for C3: rules/evaluator.py used to `except ValueError: continue`,
+    which caused WIP-limit and similar enforcement rules to silently stop working
+    on any JSON shape typo. Security-relevant because rules are meant to be
+    deterministic enforcement, not best-effort.
+    """
+    s = rules_setup
+    headers = s["headers"]
+    api_headers = {"X-API-Key": s["api_key"]}
+    team_id = s["team_id"]
+
+    # Create a rule with an unknown condition type. The service accepts it
+    # (JSONB is opaque) but the evaluator will raise ValueError when it fires.
+    rule_resp = await client.post(
+        f"/api/v1/teams/{team_id}/rules",
+        headers=api_headers,
+        json={
+            "name": "Broken rule",
+            "trigger": "issue.created",
+            "conditions": {"type": "not_a_real_condition_type"},
+            "actions": [{"type": "add_label", "label": "health"}],
+        },
+    )
+    assert rule_resp.status_code == 201
+
+    # Trigger the rule by creating an issue. Expected: 422 with rule info.
+    create_resp = await client.post(
+        f"/api/v1/teams/{team_id}/issues",
+        headers=headers,
+        json={"title": "should not succeed"},
+    )
+    assert create_resp.status_code == 422, (
+        f"Expected loud 422, got {create_resp.status_code}: {create_resp.text}"
+    )
+    body = create_resp.json()
+    # Error envelope should name the broken rule so ops can find it
+    errors = body.get("detail", {}).get("errors") or body.get("errors") or []
+    assert any(
+        "not_a_real_condition_type" in (e.get("message") or "")
+        or "broken" in (e.get("message") or "").lower()
+        or (e.get("rule_name") == "Broken rule")
+        for e in errors
+    ), f"Error payload should identify the broken rule: {body}"
+
+
+@pytest.mark.asyncio
+async def test_set_field_rejects_non_whitelisted_field_at_create(client, rules_setup):
+    """Regression test for S1: set_field used to blindly setattr() any
+    field name, letting a rule teleport issues across tenants
+    (field="team_id") or forge created_by. Rule creation must reject
+    dangerous field names at write time.
+    """
+    s = rules_setup
+    api_headers = {"X-API-Key": s["api_key"]}
+    team_id = s["team_id"]
+
+    dangerous_fields = ["team_id", "created_by", "id", "archived_at", "title_search"]
+    for field in dangerous_fields:
+        resp = await client.post(
+            f"/api/v1/teams/{team_id}/rules",
+            headers=api_headers,
+            json={
+                "name": f"Evil rule targeting {field}",
+                "trigger": "issue.created",
+                "conditions": {"type": "field_equals", "field": "title", "value": "x"},
+                "actions": [{"type": "set_field", "field": field, "value": "pwn"}],
+            },
+        )
+        assert resp.status_code == 400, (
+            f"Rule with set_field={field!r} should be rejected at create, "
+            f"got {resp.status_code}: {resp.text}"
+        )
+
+
+@pytest.mark.asyncio
+async def test_count_query_excludes_archived_issues(client, rules_setup):
+    """Regression test for M6: WIP limit rules used to count archived issues.
+
+    A team with a "max 2 started issues" rule could be soft-deadlocked by
+    completing and archiving old work: the archived rows still counted toward
+    the limit, so new work couldn't start. Count queries should exclude
+    archived issues by default.
+    """
+    from datetime import datetime
+    from sqlalchemy import update as sa_update
+    from taskstore.models.issue import Issue
+    from tests.conftest import TestSessionLocal
+
+    s = rules_setup
+    headers = s["headers"]
+    api_headers = {"X-API-Key": s["api_key"]}
+    team_id = s["team_id"]
+    started_state_id = s["states"]["started"]["id"]
+    unstarted_state_id = s["states"]["unstarted"]["id"]
+
+    # Rule: WIP limit of 2 started issues. Issue is flushed before rules
+    # run, so "reject when count >= 3" is how you express "max 2 allowed."
+    rule_resp = await client.post(
+        f"/api/v1/teams/{team_id}/rules",
+        headers=api_headers,
+        json={
+            "name": "WIP limit: started <= 2",
+            "trigger": "issue.created",
+            "conditions": {
+                "type": "count_query",
+                "where": {"state_type": "started"},
+                "operator": ">=",
+                "value": 3,
+            },
+            "actions": [{"type": "reject", "message": "WIP limit reached"}],
+        },
+    )
+    assert rule_resp.status_code == 201
+
+    # Create two started issues — fill the WIP quota
+    for i in range(2):
+        resp = await client.post(
+            f"/api/v1/teams/{team_id}/issues",
+            headers=headers,
+            json={"title": f"started {i}", "state_id": started_state_id},
+        )
+        assert resp.status_code == 201, resp.text
+
+    # Third create must be rejected — limit is full
+    blocked = await client.post(
+        f"/api/v1/teams/{team_id}/issues",
+        headers=headers,
+        json={"title": "blocked", "state_id": started_state_id},
+    )
+    assert blocked.status_code == 422
+
+    # Archive one of the started issues by setting archived_at directly.
+    # (No archive endpoint yet — direct DB write simulates an archiver job.)
+    async with TestSessionLocal() as session:
+        await session.execute(
+            sa_update(Issue)
+            .where(Issue.team_id == uuid.UUID(team_id), Issue.state_id == uuid.UUID(started_state_id))
+            .values(archived_at=datetime.utcnow())
+            .execution_options(synchronize_session=False)
+        )
+        await session.commit()
+
+    # With the previous started issues archived, active WIP count is 0.
+    # A new started issue should now be allowed.
+    after_archive = await client.post(
+        f"/api/v1/teams/{team_id}/issues",
+        headers=headers,
+        json={"title": "should now succeed", "state_id": started_state_id},
+    )
+    assert after_archive.status_code == 201, (
+        f"Archived issues should not count toward WIP limit: {after_archive.text}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_set_field_allows_whitelisted_fields_at_create(client, rules_setup):
+    """Whitelisted fields must still be accepted at rule create."""
+    s = rules_setup
+    api_headers = {"X-API-Key": s["api_key"]}
+    team_id = s["team_id"]
+
+    for field in ("priority", "estimate", "assignee_id", "project_id",
+                  "due_date", "state_id"):
+        resp = await client.post(
+            f"/api/v1/teams/{team_id}/rules",
+            headers=api_headers,
+            json={
+                "name": f"Legit rule setting {field}",
+                "trigger": "issue.created",
+                "conditions": {"type": "field_equals", "field": "title", "value": "x"},
+                "actions": [{"type": "set_field", "field": field, "value": None}],
+            },
+        )
+        assert resp.status_code == 201, (
+            f"Whitelisted field {field!r} should be accepted, "
+            f"got {resp.status_code}: {resp.text}"
+        )
