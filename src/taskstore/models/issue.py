@@ -1,14 +1,13 @@
 import uuid
 from datetime import date, datetime
 
-from taskstore.utils.time import now_utc
-
 from sqlalchemy import Computed, Date, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from taskstore.database import Base
 from taskstore.models.enums import IssueType
+from taskstore.utils.time import now_utc
 
 
 class Issue(Base):

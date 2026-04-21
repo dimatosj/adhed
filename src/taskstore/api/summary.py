@@ -1,9 +1,9 @@
 import uuid
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from taskstore.api.deps import get_db, get_team as get_authed_team, verified_team
+from taskstore.api.deps import get_db, verified_team
 from taskstore.models.team import Team
 from taskstore.schemas.common import Envelope
 from taskstore.schemas.summary import SummaryData

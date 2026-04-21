@@ -6,9 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from taskstore.api.deps import (
     get_current_user,
     get_db,
-    get_team as get_authed_team,
     require_admin_or_owner,
     verified_team,
+)
+from taskstore.api.deps import (
+    get_team as get_authed_team,
 )
 from taskstore.models.enums import ProjectState
 from taskstore.models.team import Team

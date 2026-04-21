@@ -1,9 +1,12 @@
+import logging
 import uuid
-from datetime import date, datetime
+from datetime import date
 
 from fastapi import HTTPException
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 from taskstore.engine.audit import compute_diff, record_audit
 from taskstore.engine.transitions import is_valid_transition
@@ -22,7 +25,13 @@ from taskstore.rules.evaluator import (
     evaluate_rules,
 )
 from taskstore.schemas.common import Envelope, ErrorDetail
-from taskstore.schemas.issue import IssueCreate, IssueResponse, IssueStateInfo, IssueLabelInfo, IssueUpdate
+from taskstore.schemas.issue import (
+    IssueCreate,
+    IssueLabelInfo,
+    IssueResponse,
+    IssueStateInfo,
+    IssueUpdate,
+)
 
 
 async def _validate_references(
@@ -235,7 +244,10 @@ async def update_issue(
         if not is_valid_transition(old_state.type, new_state.type):
             raise HTTPException(
                 status_code=422,
-                detail=f"Invalid state transition: {old_state.type} -> {new_state.type}",
+                detail=(
+                    f"Invalid state transition from {old_state.type.value} "
+                    f"to {new_state.type.value}"
+                ),
             )
 
     # Capture old values for diff before mutating

@@ -2,8 +2,7 @@
 entity, not just issues. The README claims "audit trail on every
 mutation" — this is the contract we hold to.
 
-PR 2 extends coverage to: rule, label, project, team. User/membership
-coverage is planned for PR 2.5.
+Covers: rule, label, project, team, membership.
 """
 import pytest
 
@@ -115,6 +114,28 @@ async def test_project_mutations_are_audited(client):
     )
     actions = {e["action"] for e in audit.json()["data"]}
     assert actions == {"create", "update", "delete"}
+
+
+@pytest.mark.asyncio
+async def test_member_add_is_audited(client):
+    team, _, user_id, headers = await _bootstrap(client)
+    add = await client.post(
+        f"/api/v1/teams/{team['id']}/users",
+        headers=headers,
+        json={"name": "Alice", "email": "alice@x.test"},
+    )
+    assert add.status_code == 201
+    new_user_id = add.json()["data"]["id"]
+
+    audit = await client.get(
+        f"/api/v1/teams/{team['id']}/audit",
+        headers=headers,
+        params={"entity_type": "membership", "action": "create"},
+    )
+    entries = audit.json()["data"]
+    assert len(entries) == 1
+    assert entries[0]["entity_id"] == new_user_id
+    assert entries[0]["user_id"] == user_id  # the adder, not the added
 
 
 @pytest.mark.asyncio

@@ -88,4 +88,4 @@ async def test_setup_returns_409_on_second_call(client):
 
     resp2 = await client.post("/api/v1/setup", json=SETUP_PAYLOAD)
     assert resp2.status_code == 409
-    assert resp2.json()["detail"] == "Already set up"
+    assert resp2.json()["errors"][0]["message"] == "Already set up"

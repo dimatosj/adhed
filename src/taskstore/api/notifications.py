@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from taskstore.api.deps import get_db, get_team as get_authed_team, verified_team
+from taskstore.api.deps import get_db, verified_team
+from taskstore.api.deps import get_team as get_authed_team
 from taskstore.models.notification import Notification
 from taskstore.models.team import Team
 from taskstore.schemas.common import Envelope, Meta

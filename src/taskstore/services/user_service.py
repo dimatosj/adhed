@@ -1,16 +1,19 @@
 import uuid
 
-from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from taskstore.models.enums import TeamRole
+from taskstore.engine.audit import record_audit
+from taskstore.models.enums import AuditAction, TeamRole
 from taskstore.models.user import TeamMembership, User
 from taskstore.schemas.user import UserCreate
 
 
 async def create_or_add_user(
-    db: AsyncSession, team_id: uuid.UUID, data: UserCreate
+    db: AsyncSession,
+    team_id: uuid.UUID,
+    data: UserCreate,
+    acting_user_id: uuid.UUID | None = None,
 ) -> tuple[User, TeamRole]:
     # Check if user with this email already exists
     result = await db.execute(select(User).where(User.email == data.email))
@@ -47,6 +50,12 @@ async def create_or_add_user(
 
     membership = TeamMembership(user_id=user.id, team_id=team_id, role=role)
     db.add(membership)
+    if acting_user_id is not None:
+        # Audits track who added whom. For the /setup bootstrap path
+        # there is no acting user yet — the first call passes None.
+        await record_audit(
+            db, team_id, "membership", user.id, AuditAction.CREATE, acting_user_id
+        )
     await db.commit()
     await db.refresh(user)
     return user, role

@@ -1,15 +1,16 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from taskstore.api.deps import (
+    get_current_user,
     get_db,
-    get_team as get_authed_team,
     verified_team,
     verified_team_admin,
 )
 from taskstore.models.team import Team
+from taskstore.models.user import User
 from taskstore.schemas.common import Envelope, Meta
 from taskstore.schemas.user import UserCreate, UserResponse
 from taskstore.services.user_service import create_or_add_user, list_users
@@ -22,9 +23,12 @@ async def create_user_endpoint(
     team_id: uuid.UUID,
     data: UserCreate,
     authed_team: Team = Depends(verified_team_admin),
+    caller: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    user, role = await create_or_add_user(db, team_id, data)
+    user, role = await create_or_add_user(
+        db, team_id, data, acting_user_id=caller.id
+    )
     response = UserResponse(
         id=user.id,
         name=user.name,
