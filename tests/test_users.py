@@ -1,31 +1,7 @@
 import pytest
 
+from tests.conftest import make_team
 
-async def make_team(client, name="Acme", key="acme"):
-    # Bootstrap via /setup (first team; POST /teams now requires OWNER auth).
-    resp = await client.post(
-        "/api/v1/setup",
-        json={
-            "team_name": name,
-            "team_key": key,
-            "user_name": "Setup",
-            "user_email": f"setup-{key}@example.com",
-        },
-    )
-    assert resp.status_code == 201
-    data = resp.json()
-    return {
-        "id": data["team_id"],
-        "name": data["team_name"],
-        "key": data["team_key"],
-        "api_key": data["api_key"],
-        "_setup_user_id": data["user_id"],
-    }
-
-
-# NOTE: make_team now bootstraps via /setup, which creates an initial
-# "Setup" user as OWNER. Users added via POST /teams/{id}/users after
-# that default to MEMBER. Tests below account for that pre-existing user.
 
 
 @pytest.mark.asyncio

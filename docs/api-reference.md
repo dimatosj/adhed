@@ -53,8 +53,10 @@ Creates the initial team and owner user. Call once after first deploy.
 | `team_key` | string | yes | Short key (uppercase letters, used in issue prefixes) |
 | `user_name` | string | yes | Name of the owner user |
 | `user_email` | string | yes | Email of the owner user |
+| `include_default_labels` | boolean | no | Seed 14 GTD-style default labels (default: `false`) |
 
-**Response (201):**
+**Response (201):** The response includes `api_key` **exactly once** —
+record it, you cannot recover it later (keys are SHA-256 hashed at rest).
 
 ```json
 {
