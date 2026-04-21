@@ -12,7 +12,7 @@ async def test_create_user(client):
 
     resp = await client.post(
         f"/api/v1/teams/{team_id}/users",
-        headers={"X-API-Key": api_key},
+        headers={"X-API-Key": api_key, "X-User-Id": team["_setup_user_id"]},
         json={"name": "Alice", "email": "alice@example.com"},
     )
     assert resp.status_code == 201
@@ -31,7 +31,7 @@ async def test_create_second_user_is_member(client):
 
     resp = await client.post(
         f"/api/v1/teams/{team_id}/users",
-        headers={"X-API-Key": api_key},
+        headers={"X-API-Key": api_key, "X-User-Id": team["_setup_user_id"]},
         json={"name": "Bob", "email": "bob@example.com"},
     )
     assert resp.status_code == 201
@@ -47,12 +47,12 @@ async def test_list_users(client):
 
     await client.post(
         f"/api/v1/teams/{team_id}/users",
-        headers={"X-API-Key": api_key},
+        headers={"X-API-Key": api_key, "X-User-Id": team["_setup_user_id"]},
         json={"name": "Alice", "email": "alice@example.com"},
     )
     await client.post(
         f"/api/v1/teams/{team_id}/users",
-        headers={"X-API-Key": api_key},
+        headers={"X-API-Key": api_key, "X-User-Id": team["_setup_user_id"]},
         json={"name": "Bob", "email": "bob@example.com"},
     )
 
@@ -75,14 +75,14 @@ async def test_duplicate_email_same_team(client):
 
     await client.post(
         f"/api/v1/teams/{team_id}/users",
-        headers={"X-API-Key": api_key},
+        headers={"X-API-Key": api_key, "X-User-Id": team["_setup_user_id"]},
         json={"name": "Alice", "email": "alice@example.com"},
     )
 
     # Adding same email again should succeed (user already in team)
     resp = await client.post(
         f"/api/v1/teams/{team_id}/users",
-        headers={"X-API-Key": api_key},
+        headers={"X-API-Key": api_key, "X-User-Id": team["_setup_user_id"]},
         json={"name": "Alice", "email": "alice@example.com"},
     )
     assert resp.status_code == 201

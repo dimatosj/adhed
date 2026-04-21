@@ -8,8 +8,7 @@ async def setup(client):
     team = await make_team(client)
     team_id = team["id"]
     api_key = team["api_key"]
-    user = await make_user(client, team_id, api_key)
-    user_id = user["id"]
+    user_id = team["_setup_user_id"]
     headers = {"X-API-Key": api_key, "X-User-Id": user_id}
     states = await get_states_by_type(client, team_id, api_key)
     return {
@@ -32,7 +31,7 @@ async def test_list_notifications(client, setup):
     # Create a rule that sends a notification on issue.created
     rule_resp = await client.post(
         f"/api/v1/teams/{team_id}/rules",
-        headers={"X-API-Key": api_key},
+        headers=headers,
         json={
             "name": "Notify on create",
             "trigger": "issue.created",
@@ -59,7 +58,7 @@ async def test_list_notifications(client, setup):
     # List notifications
     notif_resp = await client.get(
         f"/api/v1/teams/{team_id}/notifications",
-        headers={"X-API-Key": api_key},
+        headers=headers,
         params={"user_id": user_id},
     )
     assert notif_resp.status_code == 200
@@ -80,7 +79,7 @@ async def test_mark_read(client, setup):
     # Create rule and issue to generate a notification
     await client.post(
         f"/api/v1/teams/{team_id}/rules",
-        headers={"X-API-Key": api_key},
+        headers=headers,
         json={
             "name": "Notify on create",
             "trigger": "issue.created",
@@ -103,7 +102,7 @@ async def test_mark_read(client, setup):
     # Get notification
     notif_resp = await client.get(
         f"/api/v1/teams/{team_id}/notifications",
-        headers={"X-API-Key": api_key},
+        headers=headers,
         params={"user_id": user_id},
     )
     assert notif_resp.status_code == 200
@@ -112,7 +111,7 @@ async def test_mark_read(client, setup):
     # Mark read
     mark_resp = await client.post(
         f"/api/v1/notifications/{notif_id}/read",
-        headers={"X-API-Key": api_key},
+        headers=headers,
     )
     assert mark_resp.status_code == 200
     assert mark_resp.json()["data"]["read"] is True
@@ -120,7 +119,7 @@ async def test_mark_read(client, setup):
     # Verify it no longer appears in unread list
     notif_resp2 = await client.get(
         f"/api/v1/teams/{team_id}/notifications",
-        headers={"X-API-Key": api_key},
+        headers=headers,
         params={"user_id": user_id},
     )
     assert notif_resp2.status_code == 200
@@ -138,7 +137,7 @@ async def test_mark_all_read(client, setup):
     # Create rule and two issues to generate two notifications
     await client.post(
         f"/api/v1/teams/{team_id}/rules",
-        headers={"X-API-Key": api_key},
+        headers=headers,
         json={
             "name": "Notify on create",
             "trigger": "issue.created",
@@ -166,20 +165,20 @@ async def test_mark_all_read(client, setup):
     # Verify we have 2 notifications
     notif_resp = await client.get(
         f"/api/v1/teams/{team_id}/notifications",
-        headers={"X-API-Key": api_key},
+        headers=headers,
     )
     assert len(notif_resp.json()["data"]) == 2
 
     # Mark all read
     mark_resp = await client.post(
         f"/api/v1/teams/{team_id}/notifications/read-all",
-        headers={"X-API-Key": api_key},
+        headers=headers,
     )
     assert mark_resp.status_code == 200
 
     # Verify all read
     notif_resp2 = await client.get(
         f"/api/v1/teams/{team_id}/notifications",
-        headers={"X-API-Key": api_key},
+        headers=headers,
     )
     assert len(notif_resp2.json()["data"]) == 0

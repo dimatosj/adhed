@@ -8,8 +8,7 @@ async def setup(client):
     team = await make_team(client)
     team_id = team["id"]
     api_key = team["api_key"]
-    user = await make_user(client, team_id, api_key)
-    user_id = user["id"]
+    user_id = team["_setup_user_id"]
     headers = {"X-API-Key": api_key, "X-User-Id": user_id}
     return {
         "team": team,
@@ -37,7 +36,7 @@ async def test_issue_create_audited(client, setup):
     # Fetch audit log
     audit_resp = await client.get(
         f"/api/v1/teams/{team_id}/audit",
-        headers={"X-API-Key": setup["api_key"]},
+        headers=setup["headers"],
     )
     assert audit_resp.status_code == 200
     entries = audit_resp.json()["data"]
@@ -79,7 +78,7 @@ async def test_issue_update_audited_with_diff(client, setup):
     # Fetch update audit entries
     audit_resp = await client.get(
         f"/api/v1/teams/{team_id}/audit",
-        headers={"X-API-Key": setup["api_key"]},
+        headers=setup["headers"],
         params={"action": "update"},
     )
     assert audit_resp.status_code == 200

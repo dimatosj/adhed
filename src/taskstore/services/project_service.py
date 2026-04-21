@@ -4,7 +4,8 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from taskstore.models.enums import ProjectState
+from taskstore.engine.audit import record_audit
+from taskstore.models.enums import AuditAction, ProjectState
 from taskstore.models.issue import Issue
 from taskstore.models.project import Project
 from taskstore.models.workflow_state import WorkflowState
@@ -48,10 +49,18 @@ async def _get_issue_counts(db: AsyncSession, project_id: uuid.UUID) -> IssueCou
 
 
 async def create_project(
-    db: AsyncSession, team_id: uuid.UUID, data: ProjectCreate
+    db: AsyncSession,
+    team_id: uuid.UUID,
+    data: ProjectCreate,
+    user_id: uuid.UUID | None = None,
 ) -> ProjectResponse:
     project = Project(team_id=team_id, **data.model_dump())
     db.add(project)
+    await db.flush()
+    if user_id is not None:
+        await record_audit(
+            db, team_id, "project", project.id, AuditAction.CREATE, user_id
+        )
     await db.commit()
     await db.refresh(project)
     return await _build_response(db, project)
@@ -92,18 +101,27 @@ async def get_project_raw(db: AsyncSession, project_id: uuid.UUID) -> Project:
 
 
 async def update_project(
-    db: AsyncSession, project_id: uuid.UUID, data: ProjectUpdate
+    db: AsyncSession,
+    project_id: uuid.UUID,
+    data: ProjectUpdate,
+    user_id: uuid.UUID | None = None,
 ) -> ProjectResponse:
     project = await get_project_raw(db, project_id)
     update_data = data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(project, field, value)
+    if user_id is not None:
+        await record_audit(
+            db, project.team_id, "project", project.id, AuditAction.UPDATE, user_id
+        )
     await db.commit()
     await db.refresh(project)
     return await _build_response(db, project, include_counts=True)
 
 
-async def delete_project(db: AsyncSession, project_id: uuid.UUID) -> None:
+async def delete_project(
+    db: AsyncSession, project_id: uuid.UUID, user_id: uuid.UUID | None = None
+) -> None:
     project = await get_project_raw(db, project_id)
 
     # Check for any issues in this project
@@ -117,5 +135,9 @@ async def delete_project(db: AsyncSession, project_id: uuid.UUID) -> None:
             detail="Cannot delete project with issues",
         )
 
+    if user_id is not None:
+        await record_audit(
+            db, project.team_id, "project", project.id, AuditAction.DELETE, user_id
+        )
     await db.delete(project)
     await db.commit()

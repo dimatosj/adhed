@@ -1,6 +1,8 @@
 import uuid
 from datetime import date, datetime
 
+from taskstore.utils.time import now_utc
+
 from sqlalchemy import Computed, Date, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -36,10 +38,10 @@ class Issue(Base):
     due_date: Mapped[date | None] = mapped_column(Date)
     custom_fields: Mapped[dict | None] = mapped_column(JSONB)
     created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=now_utc)
     updated_at: Mapped[datetime] = mapped_column(
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=now_utc,
+        onupdate=now_utc,
     )
     archived_at: Mapped[datetime | None] = mapped_column()
     title_search: Mapped[str | None] = mapped_column(

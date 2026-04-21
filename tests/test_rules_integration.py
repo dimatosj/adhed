@@ -9,10 +9,10 @@ from taskstore.models.enums import StateType
 from tests.conftest import make_team, make_user, get_states_by_type
 
 
-async def make_label(client, team_id, api_key, name, color=None):
+async def make_label(client, team_id, api_key, user_id, name, color=None):
     resp = await client.post(
         f"/api/v1/teams/{team_id}/labels",
-        headers={"X-API-Key": api_key},
+        headers={"X-API-Key": api_key, "X-User-Id": user_id},
         json={"name": name, "color": color},
     )
     assert resp.status_code == 201
@@ -24,11 +24,12 @@ async def rules_setup(client):
     team = await make_team(client)
     team_id = team["id"]
     api_key = team["api_key"]
-    user = await make_user(client, team_id, api_key)
-    user_id = user["id"]
+    # Use the OWNER user created by /setup — rules, state changes, etc.
+    # all require ADMIN+ now.
+    user_id = team["_setup_user_id"]
     headers = {"X-API-Key": api_key, "X-User-Id": user_id}
     states = await get_states_by_type(client, team_id, api_key)
-    health_label = await make_label(client, team_id, api_key, "health")
+    health_label = await make_label(client, team_id, api_key, user_id, "health")
     return {
         "team": team,
         "team_id": team_id,
@@ -49,7 +50,7 @@ async def test_auto_label_rule(client, rules_setup):
     # Create rule: when issue.created, if title contains "dentist" or "gym", add label "health"
     rule_resp = await client.post(
         f"/api/v1/teams/{team_id}/rules",
-        headers={"X-API-Key": s["api_key"]},
+        headers=s["headers"],
         json={
             "name": "Auto-label health issues",
             "trigger": "issue.created",
@@ -98,7 +99,7 @@ async def test_reject_rule_blocks_operation(client, rules_setup):
     # Create rule: when issue.state_changed from triage, if priority == 0 (none), reject
     rule_resp = await client.post(
         f"/api/v1/teams/{team_id}/rules",
-        headers={"X-API-Key": s["api_key"]},
+        headers=s["headers"],
         json={
             "name": "Require priority before accepting",
             "trigger": "issue.state_changed",
@@ -149,7 +150,7 @@ async def test_rule_crud(client, rules_setup):
     s = rules_setup
     team_id = s["team_id"]
     api_key = s["api_key"]
-    api_headers = {"X-API-Key": api_key}
+    api_headers = {"X-API-Key": api_key, "X-User-Id": s["user_id"]}
 
     # Create
     create_resp = await client.post(
@@ -218,7 +219,7 @@ async def test_broken_rule_fails_loudly(client, rules_setup):
     """
     s = rules_setup
     headers = s["headers"]
-    api_headers = {"X-API-Key": s["api_key"]}
+    api_headers = {"X-API-Key": s["api_key"], "X-User-Id": s["user_id"]}
     team_id = s["team_id"]
 
     # Create a rule with an unknown condition type. The service accepts it
@@ -263,7 +264,7 @@ async def test_set_field_rejects_non_whitelisted_field_at_create(client, rules_s
     dangerous field names at write time.
     """
     s = rules_setup
-    api_headers = {"X-API-Key": s["api_key"]}
+    api_headers = {"X-API-Key": s["api_key"], "X-User-Id": s["user_id"]}
     team_id = s["team_id"]
 
     dangerous_fields = ["team_id", "created_by", "id", "archived_at", "title_search"]
@@ -300,7 +301,7 @@ async def test_count_query_excludes_archived_issues(client, rules_setup):
 
     s = rules_setup
     headers = s["headers"]
-    api_headers = {"X-API-Key": s["api_key"]}
+    api_headers = {"X-API-Key": s["api_key"], "X-User-Id": s["user_id"]}
     team_id = s["team_id"]
     started_state_id = s["states"]["started"]["id"]
     unstarted_state_id = s["states"]["unstarted"]["id"]
@@ -343,11 +344,12 @@ async def test_count_query_excludes_archived_issues(client, rules_setup):
 
     # Archive one of the started issues by setting archived_at directly.
     # (No archive endpoint yet — direct DB write simulates an archiver job.)
+    from taskstore.utils.time import now_utc
     async with TestSessionLocal() as session:
         await session.execute(
             sa_update(Issue)
             .where(Issue.team_id == uuid.UUID(team_id), Issue.state_id == uuid.UUID(started_state_id))
-            .values(archived_at=datetime.utcnow())
+            .values(archived_at=now_utc())
             .execution_options(synchronize_session=False)
         )
         await session.commit()
@@ -368,7 +370,7 @@ async def test_count_query_excludes_archived_issues(client, rules_setup):
 async def test_set_field_allows_whitelisted_fields_at_create(client, rules_setup):
     """Whitelisted fields must still be accepted at rule create."""
     s = rules_setup
-    api_headers = {"X-API-Key": s["api_key"]}
+    api_headers = {"X-API-Key": s["api_key"], "X-User-Id": s["user_id"]}
     team_id = s["team_id"]
 
     for field in ("priority", "estimate", "assignee_id", "project_id",

@@ -8,10 +8,11 @@ async def test_create_label(client):
     team = await make_team(client)
     team_id = team["id"]
     api_key = team["api_key"]
+    headers = {"X-API-Key": api_key, "X-User-Id": team["_setup_user_id"]}
 
     resp = await client.post(
         f"/api/v1/teams/{team_id}/labels",
-        headers={"X-API-Key": api_key},
+        headers=headers,
         json={"name": "Bug", "color": "#ff0000"},
     )
     assert resp.status_code == 201
@@ -26,21 +27,22 @@ async def test_list_labels(client):
     team = await make_team(client)
     team_id = team["id"]
     api_key = team["api_key"]
+    headers = {"X-API-Key": api_key, "X-User-Id": team["_setup_user_id"]}
 
     await client.post(
         f"/api/v1/teams/{team_id}/labels",
-        headers={"X-API-Key": api_key},
+        headers=headers,
         json={"name": "Bug"},
     )
     await client.post(
         f"/api/v1/teams/{team_id}/labels",
-        headers={"X-API-Key": api_key},
+        headers=headers,
         json={"name": "Feature"},
     )
 
     resp = await client.get(
         f"/api/v1/teams/{team_id}/labels",
-        headers={"X-API-Key": api_key},
+        headers=headers,
     )
     assert resp.status_code == 200
     body = resp.json()
@@ -53,15 +55,16 @@ async def test_duplicate_label_name(client):
     team = await make_team(client)
     team_id = team["id"]
     api_key = team["api_key"]
+    headers = {"X-API-Key": api_key, "X-User-Id": team["_setup_user_id"]}
 
     await client.post(
         f"/api/v1/teams/{team_id}/labels",
-        headers={"X-API-Key": api_key},
+        headers=headers,
         json={"name": "Bug"},
     )
     resp = await client.post(
         f"/api/v1/teams/{team_id}/labels",
-        headers={"X-API-Key": api_key},
+        headers=headers,
         json={"name": "Bug"},
     )
     assert resp.status_code == 409
@@ -72,17 +75,18 @@ async def test_update_label(client):
     team = await make_team(client)
     team_id = team["id"]
     api_key = team["api_key"]
+    headers = {"X-API-Key": api_key, "X-User-Id": team["_setup_user_id"]}
 
     create_resp = await client.post(
         f"/api/v1/teams/{team_id}/labels",
-        headers={"X-API-Key": api_key},
+        headers=headers,
         json={"name": "Bug", "color": "#ff0000"},
     )
     label_id = create_resp.json()["data"]["id"]
 
     resp = await client.patch(
         f"/api/v1/labels/{label_id}",
-        headers={"X-API-Key": api_key},
+        headers=headers,
         json={"color": "#00ff00"},
     )
     assert resp.status_code == 200
@@ -96,22 +100,23 @@ async def test_delete_label(client):
     team = await make_team(client)
     team_id = team["id"]
     api_key = team["api_key"]
+    headers = {"X-API-Key": api_key, "X-User-Id": team["_setup_user_id"]}
 
     create_resp = await client.post(
         f"/api/v1/teams/{team_id}/labels",
-        headers={"X-API-Key": api_key},
+        headers=headers,
         json={"name": "Bug"},
     )
     label_id = create_resp.json()["data"]["id"]
 
     del_resp = await client.delete(
         f"/api/v1/labels/{label_id}",
-        headers={"X-API-Key": api_key},
+        headers=headers,
     )
     assert del_resp.status_code == 204
 
     list_resp = await client.get(
         f"/api/v1/teams/{team_id}/labels",
-        headers={"X-API-Key": api_key},
+        headers=headers,
     )
     assert len(list_resp.json()["data"]) == 0

@@ -105,7 +105,7 @@ async def test_update_team_settings(client):
 
     patch_resp = await client.patch(
         f"/api/v1/teams/{team_id}",
-        headers={"X-API-Key": api_key},
+        headers={"X-API-Key": api_key, "X-User-Id": data["user_id"]},
         json={"settings": {"archive_days": 60, "triage_enabled": False}},
     )
     assert patch_resp.status_code == 200

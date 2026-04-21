@@ -6,7 +6,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from taskstore.api.deps import get_current_user, get_db, get_team as get_authed_team
+from taskstore.api.deps import get_current_user, get_db, get_team as get_authed_team, verified_team
 from taskstore.models.team import Team
 from taskstore.models.user import User
 from taskstore.schemas.common import Envelope, Meta
@@ -34,12 +34,10 @@ router = APIRouter(tags=["issues"])
 async def create_issue_endpoint(
     team_id: uuid.UUID,
     data: IssueCreate,
-    authed_team: Team = Depends(get_authed_team),
+    authed_team: Team = Depends(verified_team),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if authed_team.id != team_id:
-        raise HTTPException(status_code=403, detail="Forbidden")
     response = await create_issue(db, authed_team, data, user.id)
     return Envelope(data=response)
 
@@ -50,7 +48,7 @@ async def create_issue_endpoint(
 )
 async def list_issues_endpoint(
     team_id: uuid.UUID,
-    authed_team: Team = Depends(get_authed_team),
+    authed_team: Team = Depends(verified_team),
     db: AsyncSession = Depends(get_db),
     state_type: str | None = Query(None),
     assignee: uuid.UUID | None = Query(None),
@@ -72,8 +70,6 @@ async def list_issues_endpoint(
     sort: str = Query("created_at"),
     order: str = Query("desc"),
 ):
-    if authed_team.id != team_id:
-        raise HTTPException(status_code=403, detail="Forbidden")
     issues, total = await list_issues(
         db,
         team_id,
@@ -157,12 +153,10 @@ async def delete_issue_endpoint(
 async def batch_create_issues_endpoint(
     team_id: uuid.UUID,
     items: list[IssueCreate],
-    authed_team: Team = Depends(get_authed_team),
+    authed_team: Team = Depends(verified_team),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if authed_team.id != team_id:
-        raise HTTPException(status_code=403, detail="Forbidden")
     results = await batch_create_issues(db, authed_team, items, user.id)
     return Envelope(data=results)
 
@@ -179,12 +173,10 @@ class BatchUpdateBody(BaseModel):
 async def batch_update_issues_endpoint(
     team_id: uuid.UUID,
     body: BatchUpdateBody,
-    authed_team: Team = Depends(get_authed_team),
+    authed_team: Team = Depends(verified_team),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if authed_team.id != team_id:
-        raise HTTPException(status_code=403, detail="Forbidden")
     results = await batch_update_issues(
         db, team_id, body.filter, body.update, user_id=user.id
     )

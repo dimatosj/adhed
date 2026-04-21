@@ -1,6 +1,8 @@
 import uuid
 from datetime import date, datetime, timedelta
 
+from taskstore.utils.time import now_utc
+
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,7 +26,7 @@ async def get_summary(
     user_id: uuid.UUID | None = None,
 ) -> SummaryData:
     today = date.today()
-    now = datetime.utcnow()
+    now = now_utc()
     seven_days_ago = now - timedelta(days=7)
     seven_days_from_now = today + timedelta(days=7)
 
