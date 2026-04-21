@@ -139,9 +139,9 @@ async def test_reject_rule_blocks_operation(client, rules_setup):
         json={"state_id": backlog_state_id},
     )
     assert patch_resp.status_code == 422
-    detail = patch_resp.json()["detail"]
-    assert detail["errors"][0]["message"] == "Set priority before accepting from triage."
-    assert detail["errors"][0]["rule_name"] == "Require priority before accepting"
+    body = patch_resp.json()
+    assert body["errors"][0]["message"] == "Set priority before accepting from triage."
+    assert body["errors"][0]["rule_name"] == "Require priority before accepting"
 
 
 @pytest.mark.asyncio

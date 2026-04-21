@@ -1,7 +1,8 @@
+import logging
 import uuid
 from typing import AsyncGenerator
 
-from fastapi import Depends, Header, HTTPException
+from fastapi import Depends, Header, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,6 +10,8 @@ from taskstore.database import create_session_factory
 from taskstore.models.enums import TeamRole
 from taskstore.models.team import Team, hash_api_key
 from taskstore.models.user import User, TeamMembership
+
+logger = logging.getLogger(__name__)
 
 _session_factory = None
 
@@ -27,16 +30,26 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def get_team(
+    request: Request,
     x_api_key: str | None = Header(None, alias="X-API-Key"),
     db: AsyncSession = Depends(get_db),
 ) -> Team:
+    client_ip = request.client.host if request.client else "unknown"
     if not x_api_key:
+        logger.warning(
+            "auth_missing_api_key",
+            extra={"client_ip": client_ip, "path": request.url.path},
+        )
         raise HTTPException(status_code=401, detail="Missing API key")
     result = await db.execute(
         select(Team).where(Team.api_key_hash == hash_api_key(x_api_key))
     )
     team = result.scalar_one_or_none()
     if not team:
+        logger.warning(
+            "auth_invalid_api_key",
+            extra={"client_ip": client_ip, "path": request.url.path},
+        )
         raise HTTPException(status_code=401, detail="Invalid API key")
     return team
 

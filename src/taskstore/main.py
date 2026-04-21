@@ -1,9 +1,24 @@
+import logging
+import os
+from contextlib import asynccontextmanager
+
 from fastapi import Depends, FastAPI
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from taskstore.api.deps import get_db
+from taskstore.api.errors import register_exception_handlers
 from taskstore.api.setup import router as setup_router
+from taskstore.logging_config import configure_logging
+
+# Configure logging before any app imports do getLogger(__name__) to
+# ensure their logs route through our handler. Reading env directly
+# (not via pydantic settings) since we need this at import time.
+configure_logging(
+    level=os.environ.get("LOG_LEVEL", "info"),
+    fmt=os.environ.get("LOG_FORMAT", "plain"),
+)
+logger = logging.getLogger("taskstore")
 from taskstore.api.teams import router as teams_router
 from taskstore.api.states import router as states_router
 from taskstore.api.users import router as users_router
@@ -16,7 +31,21 @@ from taskstore.api.comments import router as comments_router
 from taskstore.api.notifications import router as notifications_router
 from taskstore.api.summary import router as summary_router
 
-app = FastAPI(title="ADHED", version="0.1.0", description="Headless task management for agents and claws")
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    logger.info("adhed_startup", extra={"version": app.version})
+    yield
+    logger.info("adhed_shutdown")
+
+
+app = FastAPI(
+    title="ADHED",
+    version="0.1.0",
+    description="Headless task management for agents and claws",
+    lifespan=_lifespan,
+)
+
+register_exception_handlers(app)
 
 app.include_router(setup_router)
 app.include_router(teams_router)
