@@ -122,7 +122,7 @@ async def test_member_add_is_audited(client):
     add = await client.post(
         f"/api/v1/teams/{team['id']}/users",
         headers=headers,
-        json={"name": "Alice", "email": "alice@x.test"},
+        json={"name": "Alice", "email": "alice@example.com"},
     )
     assert add.status_code == 201
     new_user_id = add.json()["data"]["id"]

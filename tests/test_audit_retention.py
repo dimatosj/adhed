@@ -25,7 +25,7 @@ async def test_delete_audit_before_requires_owner(client):
     team, owner_headers = await _bootstrap(client)
     member = await make_user(
         client, team["id"], team["api_key"],
-        name="M", email="m@x.test",
+        name="M", email="m@example.com",
         as_user_id=team["_setup_user_id"],
     )
     member_headers = {"X-API-Key": team["api_key"], "X-User-Id": member["id"]}
@@ -58,7 +58,7 @@ async def test_delete_audit_removes_only_entries_before_cutoff(client):
     first = await client.post(
         f"/api/v1/teams/{team['id']}/users",
         headers=headers,
-        json={"name": "A", "email": "a@x.test"},
+        json={"name": "A", "email": "a@example.com"},
     )
     assert first.status_code == 201
 
@@ -72,7 +72,7 @@ async def test_delete_audit_removes_only_entries_before_cutoff(client):
     second = await client.post(
         f"/api/v1/teams/{team['id']}/users",
         headers=headers,
-        json={"name": "B", "email": "b@x.test"},
+        json={"name": "B", "email": "b@example.com"},
     )
     assert second.status_code == 201
 

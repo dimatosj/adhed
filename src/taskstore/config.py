@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 from pydantic_settings import BaseSettings
 
 
@@ -18,5 +20,8 @@ class Settings(BaseSettings):
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 
+@lru_cache(maxsize=1)
 def get_settings() -> Settings:
+    # Cached because Settings() re-parses env + .env on every call.
+    # Standard pydantic-settings pattern.
     return Settings()

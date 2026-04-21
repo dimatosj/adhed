@@ -57,7 +57,7 @@ async def _fetch_states(client, team_id, api_key):
 async def two_teams(client):
     # Team A via /setup — creates team + owner in one shot
     a_setup = await _bootstrap_team_via_setup(
-        client, "TeamA", "TEAMA", "a@x.test"
+        client, "TeamA", "TEAMA", "a@example.com"
     )
     a_states = await _fetch_states(client, a_setup["team_id"], a_setup["api_key"])
     a = {
@@ -168,7 +168,7 @@ async def test_create_issue_rejects_non_member_assignee(client, two_teams):
     new_user_resp = await client.post(
         f"/api/v1/teams/{b['team_id']}/users",
         headers=b["headers"],
-        json={"name": "B-only", "email": "bonly@x.test"},
+        json={"name": "B-only", "email": "bonly@example.com"},
     )
     assert new_user_resp.status_code == 201
     b_only_user_id = new_user_resp.json()["data"]["id"]
