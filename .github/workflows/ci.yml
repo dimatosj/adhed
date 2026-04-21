@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: tests + lint + audit
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: adhed
+          POSTGRES_PASSWORD: adhed
+          POSTGRES_DB: adhed_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U adhed"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://adhed:adhed@localhost:5433/adhed_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install pip-audit
+
+      - name: Ruff lint
+        run: ruff check src/ tests/
+
+      - name: Ruff format check
+        run: ruff format --check src/ tests/
+
+      - name: Pytest
+        run: pytest tests/ -v
+
+      - name: pip-audit
+        # Surface known CVEs in declared dependencies. Non-blocking for
+        # now (ignore-vuln list can be tuned once the project has a
+        # security policy in place).
+        run: pip-audit --desc --strict || true

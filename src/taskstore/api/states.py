@@ -1,12 +1,11 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from taskstore.api.deps import (
     get_db,
-    get_team as get_authed_team,
     verified_team,
     verified_team_admin,
 )

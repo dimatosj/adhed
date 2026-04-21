@@ -19,17 +19,18 @@ configure_logging(
     fmt=os.environ.get("LOG_FORMAT", "plain"),
 )
 logger = logging.getLogger("taskstore")
-from taskstore.api.teams import router as teams_router
-from taskstore.api.states import router as states_router
-from taskstore.api.users import router as users_router
-from taskstore.api.labels import router as labels_router
-from taskstore.api.issues import router as issues_router
 from taskstore.api.audit import router as audit_router
-from taskstore.api.rules import router as rules_router
-from taskstore.api.projects import router as projects_router
 from taskstore.api.comments import router as comments_router
+from taskstore.api.issues import router as issues_router
+from taskstore.api.labels import router as labels_router
 from taskstore.api.notifications import router as notifications_router
+from taskstore.api.projects import router as projects_router
+from taskstore.api.rules import router as rules_router
+from taskstore.api.states import router as states_router
 from taskstore.api.summary import router as summary_router
+from taskstore.api.teams import router as teams_router
+from taskstore.api.users import router as users_router
+
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):

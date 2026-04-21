@@ -1,14 +1,13 @@
 import uuid
 from datetime import datetime
 
-from taskstore.utils.time import now_utc
-
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from taskstore.database import Base
 from taskstore.models.enums import TeamRole
+from taskstore.utils.time import now_utc
 
 
 class User(Base):

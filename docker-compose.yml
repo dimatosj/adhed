@@ -21,8 +21,12 @@ services:
       - POSTGRES_USER=adhed
       - POSTGRES_PASSWORD=adhed
       - POSTGRES_DB=adhed
+    # Bind Postgres to loopback only. The API container reaches it
+    # over the compose network, not via the host port. If you need
+    # to connect from the host (psql, a GUI), change DB_BIND to
+    # 0.0.0.0 in your .env.
     ports:
-      - "${DB_PORT:-5433}:5432"
+      - "${DB_BIND:-127.0.0.1}:${DB_PORT:-5433}:5432"
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "adhed"]
       interval: 5s

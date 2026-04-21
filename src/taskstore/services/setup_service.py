@@ -1,4 +1,3 @@
-import uuid
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
@@ -6,7 +5,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from taskstore.models.label import Label
 from taskstore.models.team import Team
-from taskstore.schemas.label import LabelCreate
 from taskstore.schemas.setup import SetupRequest, SetupResponse
 from taskstore.schemas.team import TeamCreate
 from taskstore.schemas.user import UserCreate

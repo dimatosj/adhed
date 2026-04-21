@@ -6,14 +6,17 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+import taskstore.models  # noqa: F401 — ensure all models are registered
+from taskstore.api.deps import get_db
 from taskstore.database import Base
 from taskstore.main import app
-from taskstore.api.deps import get_db
-import taskstore.models  # noqa: F401 — ensure all models are registered
 
 TEST_DB_URL = os.environ.get(
     "TEST_DATABASE_URL",
-    "postgresql+asyncpg://taskstore:taskstore@localhost:5433/adhed_test",
+    # Default matches docker-compose.yml credentials (adhed/adhed) so
+    # `docker compose up -d adhed-db` + `pytest` works out of the box.
+    # Override with TEST_DATABASE_URL if you run Postgres elsewhere.
+    "postgresql+asyncpg://adhed:adhed@localhost:5433/adhed_test",
 )
 
 engine = create_async_engine(TEST_DB_URL, echo=False)

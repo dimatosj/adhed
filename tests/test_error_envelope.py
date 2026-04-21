@@ -22,7 +22,7 @@ async def test_404_error_is_envelope(client):
     team, headers = await _setup(client)
     # Non-existent issue
     resp = await client.get(
-        f"/api/v1/issues/00000000-0000-0000-0000-000000000000",
+        "/api/v1/issues/00000000-0000-0000-0000-000000000000",
         headers=headers,
     )
     assert resp.status_code == 404
@@ -41,7 +41,7 @@ async def test_403_forbidden_is_envelope(client):
     team, headers = await _setup(client)
     # Team A's key hitting a fake team id → 403 via verified_team
     resp = await client.get(
-        f"/api/v1/teams/00000000-0000-0000-0000-000000000000/issues",
+        "/api/v1/teams/00000000-0000-0000-0000-000000000000/issues",
         headers=headers,
     )
     assert resp.status_code == 403

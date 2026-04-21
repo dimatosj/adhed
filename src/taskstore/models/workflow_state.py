@@ -1,14 +1,13 @@
 import uuid
 from datetime import datetime
 
-from taskstore.utils.time import now_utc
-
 from sqlalchemy import ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from taskstore.database import Base
 from taskstore.models.enums import StateType
+from taskstore.utils.time import now_utc
 
 
 class WorkflowState(Base):

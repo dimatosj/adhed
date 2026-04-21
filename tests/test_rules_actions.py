@@ -1,6 +1,6 @@
 """Pure unit tests for rule action preparation — no DB needed."""
 
-from taskstore.rules.actions import prepare_action, Effect
+from taskstore.rules.actions import prepare_action
 from taskstore.rules.context import RuleContext
 
 

@@ -5,8 +5,7 @@ import uuid
 import pytest
 
 from taskstore.models.enums import StateType
-
-from tests.conftest import make_team, make_user, get_states_by_type
+from tests.conftest import get_states_by_type, make_team
 
 
 async def make_label(client, team_id, api_key, user_id, name, color=None):
@@ -294,8 +293,8 @@ async def test_count_query_excludes_archived_issues(client, rules_setup):
     the limit, so new work couldn't start. Count queries should exclude
     archived issues by default.
     """
-    from datetime import datetime
     from sqlalchemy import update as sa_update
+
     from taskstore.models.issue import Issue
     from tests.conftest import TestSessionLocal
 

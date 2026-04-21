@@ -1,5 +1,6 @@
 import enum
 
+
 class StateType(str, enum.Enum):
     TRIAGE = "triage"
     BACKLOG = "backlog"

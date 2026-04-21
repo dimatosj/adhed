@@ -1,14 +1,13 @@
 import uuid
 from datetime import datetime
 
-from taskstore.utils.time import now_utc
-
 from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from taskstore.database import Base
 from taskstore.models.enums import RuleTrigger
+from taskstore.utils.time import now_utc
 
 
 class Rule(Base):
