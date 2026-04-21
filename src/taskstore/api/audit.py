@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from taskstore.api.deps import (
@@ -10,6 +10,7 @@ from taskstore.api.deps import (
     get_current_user,
     get_db,
     verified_team,
+    verified_team_owner,
 )
 from taskstore.models.audit import AuditEntry
 from taskstore.models.enums import AuditAction, TeamRole
@@ -73,3 +74,27 @@ async def list_audit_entries(
         data=[AuditResponse.model_validate(e) for e in entries],
         meta=Meta(total=total, limit=limit, offset=offset),
     )
+
+
+@router.delete("/api/v1/teams/{team_id}/audit")
+async def prune_audit_entries(
+    team_id: uuid.UUID,
+    before: datetime = Query(..., description="Delete entries strictly before this timestamp."),
+    authed_team: Team = Depends(verified_team_owner),
+    db: AsyncSession = Depends(get_db),
+):
+    """Prune audit entries older than ``before``. OWNER-only.
+
+    Unbounded audit growth is a real operational problem — a year-old
+    team with heavy automation can accumulate millions of entries.
+    Run this periodically from cron or a scheduled task to keep the
+    table size manageable. Retention policy is the operator's call.
+    """
+    result = await db.execute(
+        delete(AuditEntry).where(
+            AuditEntry.team_id == team_id,
+            AuditEntry.created_at < before,
+        )
+    )
+    await db.commit()
+    return Envelope(data={"deleted": result.rowcount or 0})

@@ -7,7 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+- **`POST /teams/{id}/api-key/rotate`** — rotate a team's API key.
+  OWNER only. Returns the new plaintext key exactly once; the
+  previous key stops authenticating immediately. Audited.
+- **`PATCH /teams/{id}/members/{user_id}`** — change a member's
+  role. OWNER only. Refuses to demote the last OWNER (promote
+  another member first). Audited.
+- **`DELETE /teams/{id}/audit?before=<ts>`** — prune audit entries
+  older than the cutoff. OWNER only. Returns count of deleted rows.
+  Prevents unbounded audit-table growth.
+- **CORS middleware** (opt-in via `CORS_ORIGINS` env var).
+- **Request body size cap** at 413. Configurable via `MAX_BODY_BYTES`
+  (default 1 MiB). Rejects before endpoint logic runs.
 
 ## [0.1.0] — Pre-launch hardening
 

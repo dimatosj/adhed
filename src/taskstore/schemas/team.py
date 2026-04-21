@@ -39,3 +39,12 @@ class TeamCreateResponse(TeamResponse):
     Subsequent GET /teams/{id} calls return only TeamResponse (no key)."""
 
     api_key: str
+
+
+class ApiKeyRotateResponse(BaseModel):
+    """Response for POST /teams/{id}/api-key/rotate — carries the new
+    plaintext key exactly once. The previous key is invalidated server-
+    side the moment this response is generated."""
+
+    team_id: uuid.UUID
+    api_key: str

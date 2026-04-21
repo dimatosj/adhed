@@ -21,6 +21,15 @@ class UserCreate(BaseModel):
     email: str
 
 
+class MembershipUpdate(BaseModel):
+    """Body for PATCH /teams/{id}/members/{user_id} — OWNER-only
+    endpoint that changes a member's role within the team."""
+
+    model_config = {"extra": "forbid"}
+
+    role: TeamRole
+
+
 class UserResponse(BaseModel):
     id: uuid.UUID
     name: str
