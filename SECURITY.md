@@ -56,11 +56,18 @@ network isolation, log aggregation).
 
 These are tracked but not yet fixed:
 
-- API keys are not rotatable via the API (regenerate = recreate team).
-- No per-team rate limiting (depend on reverse proxy).
-- Audit entries have no retention policy (grow unbounded).
-- Role-change endpoint doesn't exist; role elevation requires direct
-  DB access.
+- No per-team rate limiting inside the app. Depend on the reverse
+  proxy for this — see [docs/deployment.md](docs/deployment.md) for
+  `limit_req_zone` examples.
+- `DateTime` columns are tz-naive. Functional but a planned follow-
+  up migrates them to `TIMESTAMP WITH TIME ZONE` for cleaner
+  cross-region exports.
+
+**Addressed (formerly listed here):**
+
+- ~~API keys are not rotatable via the API~~ — `POST /teams/{id}/api-key/rotate` (OWNER only).
+- ~~Audit entries have no retention policy~~ — `DELETE /teams/{id}/audit?before=<ts>` (OWNER only).
+- ~~Role-change endpoint doesn't exist~~ — `PATCH /teams/{id}/members/{user_id}` (OWNER only).
 
 If you're relying on ADHED for anything important, read this list
 and mitigate as appropriate at the infrastructure layer.

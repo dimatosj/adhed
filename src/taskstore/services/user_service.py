@@ -61,6 +61,56 @@ async def create_or_add_user(
     return user, role
 
 
+async def change_member_role(
+    db: AsyncSession,
+    team_id: uuid.UUID,
+    target_user_id: uuid.UUID,
+    new_role: TeamRole,
+    acting_user_id: uuid.UUID,
+) -> tuple[User, TeamRole]:
+    """Change a team member's role. OWNER-only (enforced at endpoint).
+
+    Refuses to demote the last OWNER — otherwise the team becomes
+    unmanageable (no one can rotate keys, add members, etc.).
+    """
+    from fastapi import HTTPException
+
+    membership_result = await db.execute(
+        select(TeamMembership).where(
+            TeamMembership.team_id == team_id,
+            TeamMembership.user_id == target_user_id,
+        )
+    )
+    membership = membership_result.scalar_one_or_none()
+    if membership is None:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    # Guard against last-owner demotion.
+    if membership.role == TeamRole.OWNER and new_role != TeamRole.OWNER:
+        owner_count_result = await db.execute(
+            select(func.count()).where(
+                TeamMembership.team_id == team_id,
+                TeamMembership.role == TeamRole.OWNER,
+            )
+        )
+        owner_count = owner_count_result.scalar()
+        if owner_count <= 1:
+            raise HTTPException(
+                status_code=409,
+                detail="Cannot demote the last owner — promote another member to owner first.",
+            )
+
+    membership.role = new_role
+    await record_audit(
+        db, team_id, "membership", target_user_id, AuditAction.UPDATE, acting_user_id
+    )
+    await db.commit()
+
+    user_result = await db.execute(select(User).where(User.id == target_user_id))
+    user = user_result.scalar_one()
+    return user, new_role
+
+
 async def list_users(db: AsyncSession, team_id: uuid.UUID) -> list[tuple[User, TeamRole]]:
     result = await db.execute(
         select(User, TeamMembership.role)

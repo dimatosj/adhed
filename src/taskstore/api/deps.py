@@ -150,3 +150,4 @@ def require_role_in_path_team(*required: TeamRole):
 require_owner = require_role_in_authed_team(TeamRole.OWNER)
 require_admin_or_owner = require_role_in_authed_team(TeamRole.ADMIN, TeamRole.OWNER)
 verified_team_admin = require_role_in_path_team(TeamRole.ADMIN, TeamRole.OWNER)
+verified_team_owner = require_role_in_path_team(TeamRole.OWNER)

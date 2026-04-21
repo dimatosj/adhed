@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from taskstore.api.deps import get_db
 from taskstore.api.errors import register_exception_handlers
+from taskstore.api.middleware import register_middleware
 from taskstore.api.setup import router as setup_router
 from taskstore.logging_config import configure_logging
 
@@ -47,6 +48,7 @@ app = FastAPI(
 )
 
 register_exception_handlers(app)
+register_middleware(app)
 
 app.include_router(setup_router)
 app.include_router(teams_router)

@@ -8,12 +8,17 @@ from taskstore.api.deps import (
     get_db,
     verified_team,
     verified_team_admin,
+    verified_team_owner,
 )
 from taskstore.models.team import Team
 from taskstore.models.user import User
 from taskstore.schemas.common import Envelope, Meta
-from taskstore.schemas.user import UserCreate, UserResponse
-from taskstore.services.user_service import create_or_add_user, list_users
+from taskstore.schemas.user import MembershipUpdate, UserCreate, UserResponse
+from taskstore.services.user_service import (
+    change_member_role,
+    create_or_add_user,
+    list_users,
+)
 
 router = APIRouter(prefix="/api/v1/teams", tags=["users"])
 
@@ -37,6 +42,35 @@ async def create_user_endpoint(
         created_at=user.created_at,
     )
     return Envelope(data=response)
+
+
+@router.patch(
+    "/{team_id}/members/{user_id}",
+    response_model=Envelope[UserResponse],
+)
+async def change_member_role_endpoint(
+    team_id: uuid.UUID,
+    user_id: uuid.UUID,
+    data: MembershipUpdate,
+    authed_team: Team = Depends(verified_team_owner),
+    caller: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Change a team member's role. OWNER-only.
+
+    Refuses to demote the last OWNER — promote another member first.
+    Audit-logged as entity_type=membership, action=update.
+    """
+    user, role = await change_member_role(
+        db, team_id, user_id, data.role, acting_user_id=caller.id
+    )
+    return Envelope(data=UserResponse(
+        id=user.id,
+        name=user.name,
+        email=user.email,
+        role=role,
+        created_at=user.created_at,
+    ))
 
 
 @router.get("/{team_id}/users", response_model=Envelope[list[UserResponse]])

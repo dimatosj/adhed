@@ -61,6 +61,27 @@ async def get_team(db: AsyncSession, team_id: uuid.UUID) -> Team:
     return team
 
 
+async def rotate_api_key(
+    db: AsyncSession,
+    team_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> tuple[Team, str]:
+    """Generate a new API key, store its hash, invalidate the old one.
+
+    Returns (team, new_plaintext_key). The plaintext is shown to the
+    caller exactly once. Audit-logged as an `update` on `team_api_key`.
+    """
+    team = await get_team(db, team_id)
+    new_plaintext = f"adhed_{secrets.token_hex(32)}"
+    team.api_key_hash = hash_api_key(new_plaintext)
+    await record_audit(
+        db, team.id, "team_api_key", team.id, AuditAction.UPDATE, user_id
+    )
+    await db.commit()
+    await db.refresh(team)
+    return team, new_plaintext
+
+
 async def update_team(
     db: AsyncSession,
     team_id: uuid.UUID,
