@@ -7,7 +7,6 @@ state/project/parent/label. Every FK on an Issue write must be
 verified to belong to the authed team.
 """
 
-import uuid
 
 import pytest
 

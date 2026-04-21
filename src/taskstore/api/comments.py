@@ -3,7 +3,8 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from taskstore.api.deps import get_current_user, get_db, get_team as get_authed_team
+from taskstore.api.deps import get_current_user, get_db
+from taskstore.api.deps import get_team as get_authed_team
 from taskstore.models.team import Team
 from taskstore.models.user import User
 from taskstore.schemas.comment import CommentCreate, CommentResponse

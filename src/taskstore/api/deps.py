@@ -1,6 +1,6 @@
 import logging
 import uuid
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 from fastapi import Depends, Header, HTTPException, Request
 from sqlalchemy import select
@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from taskstore.database import create_session_factory
 from taskstore.models.enums import TeamRole
 from taskstore.models.team import Team, hash_api_key
-from taskstore.models.user import User, TeamMembership
+from taskstore.models.user import TeamMembership, User
 
 logger = logging.getLogger(__name__)
 

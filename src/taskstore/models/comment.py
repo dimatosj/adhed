@@ -1,13 +1,12 @@
 import uuid
 from datetime import datetime
 
-from taskstore.utils.time import now_utc
-
 from sqlalchemy import ForeignKey, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from taskstore.database import Base
+from taskstore.utils.time import now_utc
 
 
 class Comment(Base):

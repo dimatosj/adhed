@@ -1,9 +1,7 @@
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
-from taskstore.utils.time import now_utc
-
-from sqlalchemy import and_, func, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from taskstore.models.enums import ProjectState, StateType
@@ -18,6 +16,7 @@ from taskstore.schemas.summary import (
     SummaryData,
     WaitingForItem,
 )
+from taskstore.utils.time import now_utc
 
 
 async def get_summary(
@@ -35,7 +34,6 @@ async def get_summary(
         select(WorkflowState).where(WorkflowState.team_id == team_id)
     )
     states = list(state_result.scalars().all())
-    state_map = {s.id: s.type for s in states}
     state_ids_by_type: dict[StateType, list[uuid.UUID]] = {}
     for s in states:
         state_ids_by_type.setdefault(s.type, []).append(s.id)

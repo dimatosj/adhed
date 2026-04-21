@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,7 +9,6 @@ from taskstore.api.deps import (
     _caller_role,
     get_current_user,
     get_db,
-    get_team as get_authed_team,
     verified_team,
 )
 from taskstore.models.audit import AuditEntry

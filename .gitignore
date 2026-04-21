@@ -7,3 +7,10 @@ dist/
 .pytest_cache/
 .adhed-credentials
 .env
+
+# macOS finder metadata
+.DS_Store
+
+# Local agent / tooling artifacts (not part of the project)
+.agent-identity
+dev-serve.json

@@ -4,6 +4,7 @@ def test_config_loads_from_env(monkeypatch):
     monkeypatch.setenv("LOG_LEVEL", "debug")
 
     import importlib
+
     from taskstore import config
     importlib.reload(config)
     settings = config.Settings()
@@ -18,6 +19,7 @@ def test_config_defaults(monkeypatch):
     monkeypatch.delenv("LOG_LEVEL", raising=False)
 
     import importlib
+
     from taskstore import config
     importlib.reload(config)
     settings = config.Settings()

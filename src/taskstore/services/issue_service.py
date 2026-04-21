@@ -1,6 +1,6 @@
 import logging
 import uuid
-from datetime import date, datetime
+from datetime import date
 
 from fastapi import HTTPException
 from sqlalchemy import and_, func, select
@@ -25,7 +25,13 @@ from taskstore.rules.evaluator import (
     evaluate_rules,
 )
 from taskstore.schemas.common import Envelope, ErrorDetail
-from taskstore.schemas.issue import IssueCreate, IssueResponse, IssueStateInfo, IssueLabelInfo, IssueUpdate
+from taskstore.schemas.issue import (
+    IssueCreate,
+    IssueLabelInfo,
+    IssueResponse,
+    IssueStateInfo,
+    IssueUpdate,
+)
 
 
 async def _validate_references(

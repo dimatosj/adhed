@@ -2,13 +2,12 @@ import hashlib
 import uuid
 from datetime import datetime
 
-from taskstore.utils.time import now_utc
-
 from sqlalchemy import String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from taskstore.database import Base
+from taskstore.utils.time import now_utc
 
 
 def hash_api_key(plaintext: str) -> str:

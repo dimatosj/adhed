@@ -3,7 +3,6 @@ import pytest
 from tests.conftest import make_team
 
 
-
 @pytest.mark.asyncio
 async def test_create_user(client):
     team = await make_team(client)

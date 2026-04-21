@@ -1,8 +1,7 @@
 import pytest
 
 from taskstore.models.enums import StateType
-
-from tests.conftest import make_team, make_user, get_states_by_type
+from tests.conftest import get_states_by_type, make_team
 
 
 @pytest.fixture

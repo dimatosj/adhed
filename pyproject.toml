@@ -30,3 +30,33 @@ testpaths = ["tests"]
 [tool.ruff]
 target-version = "py312"
 line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "F",     # pyflakes
+    "I",     # isort
+    "UP",    # pyupgrade (surfaces deprecated patterns like datetime.utcnow)
+    "B",     # flake8-bugbear (common pitfalls)
+    "SIM",   # flake8-simplify
+    "RUF",   # ruff-specific
+]
+ignore = [
+    "E501",   # line length — ruff format handles this, don't fail PRs on it
+    "E402",   # module-level imports after statements — we configure
+              # logging before app imports in main.py intentionally
+    "E741",   # ambiguous variable names — pragmatic, not enforced
+    "B008",   # function call in default arg — FastAPI's Depends() pattern
+    "B904",   # raise from inside except — nice-to-have, not critical
+    "UP042",  # StrEnum — str+Enum is the widely-compatible pattern
+    "UP046",  # PEP 695 generics — Generic[T] reads fine
+    "SIM105", # contextlib.suppress over try/except/pass — stylistic
+    "SIM108", # ternary vs if/else — sometimes clearer spread out
+    "RUF012", # mutable class defaults — we use {} for SQLAlchemy JSONB defaults
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests routinely unpack tuples they don't fully use (headers, team, etc.)
+# and shape assertions differently from prod code — relax the style
+# rules that don't catch real bugs there.
+"tests/*" = ["B", "SIM", "F841", "RUF059"]

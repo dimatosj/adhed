@@ -1,6 +1,6 @@
 import pytest
 
-from tests.conftest import make_team, make_user
+from tests.conftest import make_team
 
 
 @pytest.fixture
