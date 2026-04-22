@@ -21,6 +21,7 @@ logger = logging.getLogger("taskstore")
 # calls at import time resolve through our handler.
 from taskstore.api.audit import router as audit_router
 from taskstore.api.comments import router as comments_router
+from taskstore.api.fragments import router as fragments_router
 from taskstore.api.health import router as health_router
 from taskstore.api.issues import router as issues_router
 from taskstore.api.labels import router as labels_router
@@ -64,3 +65,4 @@ app.include_router(projects_router)
 app.include_router(comments_router)
 app.include_router(notifications_router)
 app.include_router(summary_router)
+app.include_router(fragments_router)
