@@ -5,12 +5,14 @@ from taskstore.models.audit import AuditEntry  # noqa: F401
 from taskstore.models.comment import Comment  # noqa: F401
 from taskstore.models.enums import (  # noqa: F401
     AuditAction,
+    FragmentType,
     IssueType,
     ProjectState,
     RuleTrigger,
     StateType,
     TeamRole,
 )
+from taskstore.models.fragment import Fragment  # noqa: F401
 from taskstore.models.issue import Issue, IssueLabel  # noqa: F401
 from taskstore.models.label import Label  # noqa: F401
 from taskstore.models.notification import Notification  # noqa: F401
