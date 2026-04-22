@@ -44,7 +44,7 @@ async def _lifespan(app: FastAPI):
 
 app = FastAPI(
     title="ADHED",
-    version="0.1.0",
+    version="0.2.0",
     description="Headless task management for agents and claws",
     lifespan=_lifespan,
 )
