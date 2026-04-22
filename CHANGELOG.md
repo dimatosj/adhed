@@ -7,7 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] — Knowledge Fragments
+
 ### Added
+- **Knowledge Fragments** — structured knowledge storage for agents.
+  Seven fragment types: `person`, `place`, `credential`, `memory`,
+  `idea`, `resource`, `journal`. Full CRUD API with full-text search
+  (Postgres TSVECTOR), GIN-indexed topics/domains/entities, JSONB
+  source metadata, and team ownership enforcement. Audited.
+  - `POST /teams/{id}/fragments` — create a fragment
+  - `GET /teams/{id}/fragments` — list with filters (type, domain,
+    topic, project, issue, entity, full-text search)
+  - `GET /teams/{id}/fragments/topics` — topic aggregation with counts
+  - `GET /fragments/{id}` — fetch single fragment
+  - `PATCH /fragments/{id}` — update fragment
+  - `DELETE /fragments/{id}` — delete fragment (204)
 - **`POST /teams/{id}/api-key/rotate`** — rotate a team's API key.
   OWNER only. Returns the new plaintext key exactly once; the
   previous key stops authenticating immediately. Audited.
@@ -24,24 +38,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Email validation** — user/setup `email` fields now use Pydantic's
   `EmailStr` (rejects `not-an-email`). Emails are lowercased at write
-  so `John@X.com` and `john@x.com` dedupe to the same user (Q12).
+  so `John@X.com` and `john@x.com` dedupe to the same user.
 - **`custom_fields` size cap** at 16 KiB per issue. Previously
-  unbounded JSONB allowed trivial DB bloat (M8).
+  unbounded JSONB allowed trivial DB bloat.
 - **Rule action template rendering** is now a single-pass regex
   substitution. Previously `str.replace` chaining re-expanded
-  user-supplied content containing `{placeholder}` strings (S9).
+  user-supplied content containing `{placeholder}` strings.
 
 ### Changed
 - **API key verification** uses `secrets.compare_digest` on the
-  hash as belt-and-braces over the indexed lookup (S11).
+  hash as belt-and-braces over the indexed lookup.
 - **`get_settings()` is `@lru_cache`'d** — standard pydantic-
-  settings pattern, avoids re-parsing env on every call (L1).
+  settings pattern, avoids re-parsing env on every call.
 - **Health endpoint moved into its own router** (`api/health.py`)
-  for consistency with the rest of the API (Q15).
+  for consistency with the rest of the API.
 - **Issue sort-column whitelist** extracted as a module-level
-  `ISSUE_SORT_COLUMNS` constant for OpenAPI consistency (Q17).
+  `ISSUE_SORT_COLUMNS` constant for OpenAPI consistency.
+- **Fragment sort-column whitelist** (`FRAGMENT_SORT_COLUMNS`).
 - **Dockerfile split into three cache layers** — deps, metadata,
-  app code — so code-edit rebuilds drop from ~90s to ~5s (Q18).
+  app code — so code-edit rebuilds drop from ~90s to ~5s.
 
 ## [0.1.0] — Pre-launch hardening
 

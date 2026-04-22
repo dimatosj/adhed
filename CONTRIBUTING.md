@@ -57,11 +57,12 @@ pytest tests/ -v
 ```
 
 Tests require a Postgres reachable at `localhost:5433` with user
-`adhed`, password `adhed`, and database `adhed_test`. The compose
-setup provides the first two; create the test DB once with:
+`adhed`, password `adhed`, and database `adhed_test`. If you ran
+`./setup.sh`, the test database was created automatically. Otherwise:
 
 ```bash
-docker exec adhed-adhed-db-1 psql -U adhed -c "CREATE DATABASE adhed_test;"
+docker compose up -d adhed-db
+docker exec $(docker compose ps -q adhed-db) psql -U adhed -c "CREATE DATABASE adhed_test;"
 ```
 
 Install pre-commit (optional but avoids CI round-trips):

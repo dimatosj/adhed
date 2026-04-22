@@ -36,6 +36,15 @@ echo "  Starting services..."
 # Start
 docker compose up -d 2>/dev/null
 
+# Create test database if it doesn't exist (idempotent)
+DB_CONTAINER=$(docker compose ps -q adhed-db 2>/dev/null)
+if [ -n "$DB_CONTAINER" ]; then
+    docker exec "$DB_CONTAINER" psql -U adhed -tc \
+        "SELECT 1 FROM pg_database WHERE datname = 'adhed_test'" 2>/dev/null \
+        | grep -q 1 \
+        || docker exec "$DB_CONTAINER" psql -U adhed -c "CREATE DATABASE adhed_test;" 2>/dev/null
+fi
+
 # Wait for healthy
 API_PORT=${API_PORT:-8100}
 echo -n "  Waiting for API"

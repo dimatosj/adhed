@@ -14,3 +14,7 @@ dist/
 # Local agent / tooling artifacts (not part of the project)
 .agent-identity
 dev-serve.json
+
+# Internal docs (audits, brainstorms, strategy)
+docs/architecture-audit-*.md
+docs/product-directions-*.md

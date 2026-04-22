@@ -87,10 +87,13 @@ Requires Docker + curl. Everything else is handled.
   dates, estimates, custom fields
 - **Six-state workflow** (triage → backlog → todo → in progress →
   done → canceled) with enforced valid transitions
+- **Fragments** — typed notes (person, place, credential, memory,
+  idea, resource, journal) with topics, domains, entities, and
+  full-text search. Structured context for agents, not just tasks.
 - **Rules engine** — trigger → condition → action, evaluated
   server-side on every write. Reject, auto-label, set fields,
   notify, add comments.
-- **Full-text search** on titles and descriptions (Postgres TSVECTOR)
+- **Full-text search** on issues and fragments (Postgres TSVECTOR)
 - **Batch operations** — create and update many issues at once
 - **Audit trail** on every mutation across every entity
 - **Summary dashboard** — triage count, overdue, due soon, stalled
@@ -130,6 +133,7 @@ See [Rules Engine](docs/rules-engine.md) for the full DSL.
 - [State Machine](docs/state-machine.md) — the six state categories
   and transitions
 - [Rules Engine](docs/rules-engine.md) — conditions, actions, examples
+- [Fragments](docs/fragments.md) — typed notes for agent context
 - [Integration Guide](docs/integration-guide.md) — building clients
 - [Architecture](docs/architecture.md) — the three-layer design
 - [Deployment](docs/deployment.md) — running beyond localhost
