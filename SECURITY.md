@@ -4,7 +4,7 @@
 
 **Please do not open a public GitHub issue for security reports.**
 
-Email `security@brindilletwig.com` with a description of the issue,
+Email `john@dimatos.com` with a description of the issue,
 reproduction steps, and any relevant logs or commands. We'll
 acknowledge within 3 business days and aim to triage within 7.
 
