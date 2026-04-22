@@ -27,6 +27,11 @@ Usage:
     life-cli.py reboot
     life-cli.py triage-all --action accept|decline
     life-cli.py notifications [--mark-read]
+    life-cli.py fragment create --text "..." --type person [--summary "..."] [--topics a,b]
+    life-cli.py fragment list [--type person] [--domain "..."] [--topic "..."] [--search "..."]
+    life-cli.py fragment get <id>
+    life-cli.py fragment delete <id>
+    life-cli.py fragment topics
     life-cli.py label list
     life-cli.py label create --name "..." [--color "#hex"]
     life-cli.py states list
@@ -91,9 +96,11 @@ def _headers() -> Dict[str, str]:
 def _team_path(path: str) -> str:
     """Prefix a path with /api/v1/teams/{team_id} if it starts with /."""
     team_id = get_team_id()
-    # Paths starting with /issues/ or /projects/ or /rules/ or /notifications/ are entity-level (no team prefix)
     entity_prefixes = ("/issues/", "/projects/", "/rules/", "/notifications/")
     if any(path.startswith(p) for p in entity_prefixes):
+        return f"/api/v1{path}"
+    # Fragment by ID is entity-level, but /fragments and /fragments/topics are team-scoped
+    if path.startswith("/fragments/") and path != "/fragments/topics":
         return f"/api/v1{path}"
     # Team-scoped paths
     return f"/api/v1/teams/{team_id}{path}"
@@ -1090,6 +1097,133 @@ def cmd_states_list(_argv: List[str]):
 
 
 # ---------------------------------------------------------------------------
+# Fragments
+# ---------------------------------------------------------------------------
+
+FRAGMENT_TYPE_EMOJI = {
+    "person": "👤",
+    "place": "📍",
+    "credential": "🔑",
+    "memory": "💭",
+    "idea": "💡",
+    "resource": "🔗",
+    "journal": "📓",
+}
+
+
+def cmd_fragment_create(argv: List[str]):
+    args = parse_args(argv)
+    text = args.get("text")
+    ftype = args.get("type")
+    if not text:
+        print("❌ --text is required", file=sys.stderr)
+        sys.exit(1)
+    if not ftype:
+        print("❌ --type is required (person|place|credential|memory|idea|resource|journal)", file=sys.stderr)
+        sys.exit(1)
+    body: Dict[str, Any] = {"text": text, "type": ftype}
+    if args.get("summary"):
+        body["summary"] = args["summary"]
+    if args.get("topics"):
+        body["topics"] = [t.strip() for t in args["topics"].split(",")]
+    if args.get("domains"):
+        body["domains"] = [d.strip() for d in args["domains"].split(",")]
+    source: Dict[str, str] = {}
+    if args.get("room"):
+        source["room"] = args["room"]
+    if args.get("project"):
+        source["linked_project_id"] = args["project"]
+    if args.get("issue"):
+        source["linked_issue_id"] = args["issue"]
+    if source:
+        body["source"] = source
+    resp = api_post("/fragments", body)
+    frag = resp.get("data", resp)
+    emoji = FRAGMENT_TYPE_EMOJI.get(frag.get("type", ""), "📝")
+    print(f"{emoji} Created {frag.get('type', '')} fragment: {frag['id']}")
+    print(f"   {frag.get('text', '')[:80]}")
+
+
+def cmd_fragment_list(argv: List[str]):
+    args = parse_args(argv)
+    params: Dict[str, Any] = {}
+    if args.get("type"):
+        params["type"] = args["type"]
+    if args.get("domain"):
+        params["domain"] = args["domain"]
+    if args.get("topic"):
+        params["topic"] = args["topic"]
+    if args.get("search"):
+        params["title_search"] = args["search"]
+    if args.get("project"):
+        params["project_id"] = args["project"]
+    if args.get("limit"):
+        params["limit"] = args["limit"]
+    resp = api_get("/fragments", params=params)
+    frags = resp.get("data", resp)
+    if not frags:
+        print("No fragments found.")
+        return
+    for frag in frags:
+        emoji = FRAGMENT_TYPE_EMOJI.get(frag.get("type", ""), "📝")
+        summary = frag.get("summary") or frag.get("text", "")[:60]
+        topics = ", ".join(frag.get("topics") or [])
+        topic_str = f"  [{topics}]" if topics else ""
+        print(f"  {emoji} {frag['id'][:8]}  {frag.get('type', ''):12s} {summary}{topic_str}")
+
+
+def cmd_fragment_get(argv: List[str]):
+    if not argv:
+        print("❌ Usage: fragment get <id>", file=sys.stderr)
+        sys.exit(1)
+    frag_id = argv[0]
+    resp = api_get(f"/fragments/{frag_id}")
+    frag = resp.get("data", resp)
+    emoji = FRAGMENT_TYPE_EMOJI.get(frag.get("type", ""), "📝")
+    print(f"{emoji} {frag.get('type', '')} fragment: {frag['id']}")
+    print(f"   Text:    {frag.get('text', '')}")
+    if frag.get("summary"):
+        print(f"   Summary: {frag['summary']}")
+    if frag.get("topics"):
+        print(f"   Topics:  {', '.join(frag['topics'])}")
+    if frag.get("domains"):
+        print(f"   Domains: {', '.join(frag['domains'])}")
+    if frag.get("entities"):
+        for ent in frag["entities"]:
+            print(f"   Entity:  {ent.get('name', '')} ({ent.get('type', '')})")
+    if frag.get("source"):
+        src = frag["source"]
+        parts = []
+        if src.get("room"):
+            parts.append(f"room: {src['room']}")
+        if src.get("linked_project_id"):
+            parts.append(f"project: {src['linked_project_id'][:8]}")
+        if src.get("linked_issue_id"):
+            parts.append(f"issue: {src['linked_issue_id'][:8]}")
+        if parts:
+            print(f"   Source:  {', '.join(parts)}")
+
+
+def cmd_fragment_delete(argv: List[str]):
+    if not argv:
+        print("❌ Usage: fragment delete <id>", file=sys.stderr)
+        sys.exit(1)
+    frag_id = argv[0]
+    api_delete(f"/fragments/{frag_id}")
+    print(f"🗑️  Deleted fragment {frag_id[:8]}")
+
+
+def cmd_fragment_topics(argv: List[str]):
+    resp = api_get("/fragments/topics")
+    topics = resp.get("data", resp)
+    if not topics:
+        print("No topics yet.")
+        return
+    for t in topics:
+        print(f"  {t['topic']:30s} ({t['count']})")
+
+
+# ---------------------------------------------------------------------------
 # Help
 # ---------------------------------------------------------------------------
 
@@ -1115,6 +1249,14 @@ Projects:
   project get    <id>
   project update <id> [--state started] [--name "..."]
   project stalled
+
+Fragments:
+  fragment create --text "..." --type person|place|credential|memory|idea|resource|journal
+                  [--summary "..."] [--topics a,b] [--domains a,b] [--room id] [--project id]
+  fragment list   [--type person] [--domain "..."] [--topic "..."] [--search "..."] [--limit N]
+  fragment get    <id>
+  fragment delete <id>
+  fragment topics
 
 Summary:
   summary        Dashboard with overdue + due soon
@@ -1174,6 +1316,14 @@ LABEL_SUBCOMMANDS = {
 
 STATES_SUBCOMMANDS = {
     "list": cmd_states_list,
+}
+
+FRAGMENT_SUBCOMMANDS = {
+    "create": cmd_fragment_create,
+    "list": cmd_fragment_list,
+    "get": cmd_fragment_get,
+    "delete": cmd_fragment_delete,
+    "topics": cmd_fragment_topics,
 }
 
 
@@ -1247,6 +1397,20 @@ def main():
         fn = STATES_SUBCOMMANDS.get(sub)
         if fn is None:
             print(f"❌ Unknown states subcommand: {sub}", file=sys.stderr)
+            sys.exit(1)
+        fn(sub_argv)
+
+    elif top == "fragment":
+        if not rest or rest[0] in ("-h", "--help"):
+            print("Usage: fragment <create|list|get|delete|topics> ...")
+            print("       fragment <subcommand> --help  for subcommand options")
+            return
+        sub = rest[0]
+        sub_argv = rest[1:]
+        fn = FRAGMENT_SUBCOMMANDS.get(sub)
+        if fn is None:
+            print(f"❌ Unknown fragment subcommand: {sub}", file=sys.stderr)
+            print(f"   Available: {', '.join(FRAGMENT_SUBCOMMANDS)}", file=sys.stderr)
             sys.exit(1)
         fn(sub_argv)
 

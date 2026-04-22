@@ -1,6 +1,6 @@
 ---
 name: life
-description: Manage tasks, projects, and life organization via the taskstore API. Use when user mentions tasks, projects, to-dos, work items, assignments, priorities, or asks about what to work on. Also handles triage, weekly review, and reboot flows.
+description: Manage tasks, projects, fragments, and life organization via the taskstore API. Use when user mentions tasks, projects, notes, fragments, to-dos, work items, assignments, priorities, or asks about what to work on. Also handles triage, weekly review, and reboot flows.
 allowed-tools: Bash(python3 /workspace/group/.claude/skills/life/life-cli.py *)
 ---
 
@@ -36,6 +36,13 @@ life-cli.py project create --name "..." [--description "..."] [--lead user-id]
 life-cli.py project get <id>
 life-cli.py project update <id> [--state started] [--name "..."]
 life-cli.py project stalled
+
+### Fragments
+life-cli.py fragment create --text "..." --type person|place|credential|memory|idea|resource|journal [--summary "..."] [--topics a,b] [--domains a,b] [--room id] [--project id] [--issue id]
+life-cli.py fragment list [--type person] [--domain "..."] [--topic "..."] [--search "..."] [--project id] [--limit N]
+life-cli.py fragment get <id>
+life-cli.py fragment delete <id>
+life-cli.py fragment topics
 
 ### Summary & Review
 life-cli.py summary
