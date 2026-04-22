@@ -25,7 +25,7 @@ die() {
 
 load_config() {
   [ -f "$CONFIG_FILE" ] || return 0
-  command -v jq &>/dev/null || return 0
+  command -v jq &>/dev/null || die "jq is required but not installed (brew install jq)"
 
   [ -z "$ADHED_URL" ]      && ADHED_URL=$(jq -r '.adhed_url // empty'      "$CONFIG_FILE" 2>/dev/null || true)
   [ -z "$ADHED_API_KEY" ]  && ADHED_API_KEY=$(jq -r '.adhed_api_key // empty'  "$CONFIG_FILE" 2>/dev/null || true)
@@ -55,9 +55,6 @@ parse_global_flags() {
       --url)
         ADHED_URL="${2:-}"; shift 2
         ;;
-      --api-key)
-        ADHED_API_KEY="${2:-}"; shift 2
-        ;;
       --team-id)
         ADHED_TEAM_ID="${2:-}"; shift 2
         ;;
@@ -70,6 +67,18 @@ parse_global_flags() {
         ;;
     esac
   done
+}
+
+urlencode() {
+  local string="$1" encoded="" c
+  for (( i=0; i<${#string}; i++ )); do
+    c="${string:i:1}"
+    case "$c" in
+      [a-zA-Z0-9.~_-]) encoded+="$c" ;;
+      *) encoded+=$(printf '%%%02X' "'$c") ;;
+    esac
+  done
+  echo "$encoded"
 }
 
 # ---------------------------------------------------------------------------
@@ -130,7 +139,7 @@ resolve_state() {
   resp=$(api_get "/api/v1/teams/${ADHED_TEAM_ID}/states")
   check_errors "$resp"
   local id
-  id=$(echo "$resp" | jq -r --arg n "$name" '.[] | select(.name == $n) | .id' 2>/dev/null | head -1)
+  id=$(echo "$resp" | jq -r --arg n "$name" '.data[] | select(.name == $n) | .id' 2>/dev/null | head -1)
   [ -z "$id" ] && die "State not found: $name"
   echo "$id"
 }
@@ -142,7 +151,7 @@ resolve_project() {
   resp=$(api_get "/api/v1/teams/${ADHED_TEAM_ID}/projects")
   check_errors "$resp"
   local id
-  id=$(echo "$resp" | jq -r --arg n "$name" '.[] | select(.name == $n) | .id' 2>/dev/null | head -1)
+  id=$(echo "$resp" | jq -r --arg n "$name" '.data[] | select(.name == $n) | .id' 2>/dev/null | head -1)
   [ -z "$id" ] && die "Project not found: $name"
   echo "$id"
 }
@@ -154,7 +163,7 @@ resolve_user() {
   resp=$(api_get "/api/v1/teams/${ADHED_TEAM_ID}/users")
   check_errors "$resp"
   local id
-  id=$(echo "$resp" | jq -r --arg n "$name" '.[] | select(.name == $n or .email == $n) | .id' 2>/dev/null | head -1)
+  id=$(echo "$resp" | jq -r --arg n "$name" '.data[] | select(.name == $n or .email == $n) | .id' 2>/dev/null | head -1)
   [ -z "$id" ] && die "User not found: $name"
   echo "$id"
 }
@@ -252,6 +261,7 @@ cmd_issues_list() {
   append_qs() {
     local k="$1" v="$2"
     [ -z "$v" ] && return
+    v=$(urlencode "$v")
     if [ -z "$qs" ]; then qs="?${k}=${v}"; else qs="${qs}&${k}=${v}"; fi
   }
 
@@ -288,7 +298,7 @@ cmd_issues_list() {
   # Table output: ID (first 8), PRIORITY, TITLE, STATE, ASSIGNEE (first 8), DUE
   echo "$resp" | jq -r '
     ["ID", "PRIORITY", "TITLE", "STATE", "ASSIGNEE", "DUE"],
-    (.[] | [
+    (.data[] | [
       (.id // "" | .[0:8]),
       (.priority // "" | tostring),
       (.title // "" | .[0:40]),
@@ -499,7 +509,7 @@ cmd_issues_delete() {
   resp=$(api_delete "/api/v1/teams/${ADHED_TEAM_ID}/issues/${issue_id}")
 
   if $JSON_OUTPUT; then
-    echo "${resp:-{\}}"
+    echo "${resp:-{}}"
     return
   fi
 
@@ -629,7 +639,7 @@ cmd_issues_comments() {
 
   echo "$resp" | jq -r '
     ["ID", "AUTHOR", "CREATED", "BODY"],
-    (.[] | [
+    (.data[] | [
       (.id // "" | .[0:8]),
       (.author.name // .author_id // ""),
       (.created_at // "" | .[0:19]),
@@ -683,7 +693,7 @@ cmd_projects_list() {
 
   echo "$resp" | jq -r '
     ["ID", "NAME", "STATE", "DESCRIPTION"],
-    (.[] | [
+    (.data[] | [
       (.id // "" | .[0:8]),
       (.name // ""),
       (.state // ""),
@@ -826,7 +836,7 @@ cmd_labels_list() {
 
   echo "$resp" | jq -r '
     ["ID", "NAME", "COLOR"],
-    (.[] | [
+    (.data[] | [
       (.id // "" | .[0:8]),
       (.name // ""),
       (.color // "")
@@ -893,7 +903,7 @@ cmd_labels_delete() {
   resp=$(api_delete "/api/v1/teams/${ADHED_TEAM_ID}/labels/${label_id}")
 
   if $JSON_OUTPUT; then
-    echo "${resp:-{\}}"
+    echo "${resp:-{}}"
     return
   fi
 
@@ -942,7 +952,7 @@ cmd_states_list() {
 
   echo "$resp" | jq -r '
     ["ID", "NAME", "TYPE", "POSITION"],
-    (.[] | [
+    (.data[] | [
       (.id // "" | .[0:8]),
       (.name // ""),
       (.type // ""),
@@ -1042,7 +1052,7 @@ cmd_rules_list() {
 
   echo "$resp" | jq -r '
     ["ID", "NAME", "TRIGGER", "ENABLED", "PRIORITY"],
-    (.[] | [
+    (.data[] | [
       (.id // "" | .[0:8]),
       (.name // ""),
       (.trigger // ""),
@@ -1172,7 +1182,7 @@ cmd_rules_delete() {
   resp=$(api_delete "/api/v1/rules/${rule_id}")
 
   if $JSON_OUTPUT; then
-    echo "${resp:-{\}}"
+    echo "${resp:-{}}"
     return
   fi
 
@@ -1256,7 +1266,7 @@ cmd_audit() {
 
   echo "$resp" | jq -r '
     ["WHEN", "ACTION", "TYPE", "ENTITY", "USER"],
-    (.[] | [
+    (.data[] | [
       (.created_at // "" | .[0:19]),
       (.action // ""),
       (.entity_type // ""),
@@ -1283,7 +1293,7 @@ cmd_notifications() {
     return
   fi
 
-  echo "$resp" | jq -r '.[] | "[" + (.created_at // "" | .[0:19]) + "] " + (.message // "")'
+  echo "$resp" | jq -r '.data[] | "[" + (.created_at // "" | .[0:19]) + "] " + (.message // "")'
 }
 
 # ---------------------------------------------------------------------------
@@ -1350,7 +1360,7 @@ cmd_fragments_list() {
 
   echo "$resp" | jq -r '
     ["ID", "TYPE", "SUMMARY", "TOPICS"],
-    (.[] | [
+    (.data[] | [
       (.id // "" | .[0:8]),
       (.type // ""),
       (.summary // "" | .[0:40]),
@@ -1458,7 +1468,7 @@ cmd_users_list() {
 
   echo "$resp" | jq -r '
     ["ID", "NAME", "EMAIL", "ROLE"],
-    (.[] | [
+    (.data[] | [
       (.id // "" | .[0:8]),
       (.name // ""),
       (.email // ""),
@@ -1608,7 +1618,6 @@ Commands:
 Global flags:
   --json                          Output raw JSON
   --url URL                       Override ADHED URL
-  --api-key KEY                   Override API key
   --team-id ID                    Override team ID
   --user-id ID                    Override user ID
 
