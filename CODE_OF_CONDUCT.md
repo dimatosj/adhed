@@ -18,7 +18,7 @@ In summary:
 
 ## Enforcement
 
-Reports can go to `conduct@brindilletwig.com`. All reports are
+Reports can go to `john@dimatos.com`. All reports are
 reviewed and treated confidentially.
 
 Consequences scale with severity: private warning, public
