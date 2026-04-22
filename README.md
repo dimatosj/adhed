@@ -13,10 +13,9 @@ Designed for bots, agents, and scripts, not humans clicking buttons.
 ## Why this exists
 
 Linear, Notion, Todoist, and friends are UI-first. Their APIs are
-an afterthought — rate-limited, undocumented-in-places, and
-frequently opinionated about what a "task" means.
+an great, but the agents don't need the GUI. 
 
-ADHED flips the stack:
+ADHED is:
 
 - **API-first.** Every feature is reachable over HTTP with
   `curl`. Interactive docs at `/docs`.
