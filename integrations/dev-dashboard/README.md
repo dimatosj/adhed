@@ -1,6 +1,6 @@
 # dev-dashboard Integration
 
-CLI tool for managing ADHED from [dev-dashboard](https://github.com/you/dev-dashboard) agents and workflows.
+CLI tool for managing ADHED from dev-dashboard agents and workflows.
 
 ## What This Is
 

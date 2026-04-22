@@ -277,14 +277,13 @@ cmd_issues_list() {
     assignee="$resolved_assignee"
   fi
 
-  append_qs "project_id"   "$project"
-  append_qs "state_type"   "$state_type"
-  append_qs "assignee_id"  "$assignee"
-  append_qs "priority_min" "$priority_min"
-  append_qs "priority_max" "$priority_max"
-  append_qs "search"       "$search"
-  append_qs "limit"        "$limit"
-  append_qs "offset"       "$offset"
+  append_qs "project_id"    "$project"
+  append_qs "state_type"    "$state_type"
+  append_qs "assignee"      "$assignee"
+  append_qs "priority"      "$priority_min"
+  append_qs "title_search"  "$search"
+  append_qs "limit"         "$limit"
+  append_qs "offset"        "$offset"
 
   local resp
   resp=$(api_get "/api/v1/teams/${ADHED_TEAM_ID}/issues${qs}")
@@ -382,9 +381,9 @@ cmd_issues_create() {
   fi
 
   local id
-  id=$(echo "$resp" | jq -r '.id')
+  id=$(echo "$resp" | jq -r '.data.id')
   echo "Created issue: $id"
-  echo "  Title: $(echo "$resp" | jq -r '.title')"
+  echo "  Title: $(echo "$resp" | jq -r '.data.title')"
 }
 
 # ---------------------------------------------------------------------------
@@ -406,7 +405,7 @@ cmd_issues_show() {
     return
   fi
 
-  echo "$resp" | jq -r '
+  echo "$resp" | jq -r '.data |
     "ID:          " + (.id // ""),
     "Title:       " + (.title // ""),
     "Type:        " + (.type // ""),
@@ -577,7 +576,7 @@ cmd_issues_convert() {
   [ -z "$issue_id" ] && die "Usage: adhed issues convert <issue-id>"
 
   local resp
-  resp=$(api_post "/api/v1/teams/${ADHED_TEAM_ID}/issues/${issue_id}/convert-to-project" "{}")
+  resp=$(api_post "/api/v1/issues/${issue_id}/convert-to-project" "{}")
   check_errors "$resp"
 
   if $JSON_OUTPUT; then
@@ -586,7 +585,7 @@ cmd_issues_convert() {
   fi
 
   local project_id
-  project_id=$(echo "$resp" | jq -r '.id // empty')
+  project_id=$(echo "$resp" | jq -r '.data.id // empty')
   echo "Converted issue $issue_id to project: ${project_id:-$resp}"
 }
 
@@ -614,7 +613,7 @@ cmd_issues_comment() {
   fi
 
   local comment_id
-  comment_id=$(echo "$resp" | jq -r '.id // empty')
+  comment_id=$(echo "$resp" | jq -r '.data.id // empty')
   echo "Comment added: ${comment_id}"
 }
 
@@ -742,9 +741,9 @@ cmd_projects_create() {
   fi
 
   local id
-  id=$(echo "$resp" | jq -r '.id')
+  id=$(echo "$resp" | jq -r '.data.id')
   echo "Created project: $id"
-  echo "  Name: $(echo "$resp" | jq -r '.name')"
+  echo "  Name: $(echo "$resp" | jq -r '.data.name')"
 }
 
 # ---------------------------------------------------------------------------
@@ -884,9 +883,9 @@ cmd_labels_create() {
   fi
 
   local id
-  id=$(echo "$resp" | jq -r '.id')
+  id=$(echo "$resp" | jq -r '.data.id')
   echo "Created label: $id"
-  echo "  Name: $(echo "$resp" | jq -r '.name')"
+  echo "  Name: $(echo "$resp" | jq -r '.data.name')"
 }
 
 # ---------------------------------------------------------------------------
@@ -1000,10 +999,10 @@ cmd_states_create() {
   fi
 
   local id
-  id=$(echo "$resp" | jq -r '.id')
+  id=$(echo "$resp" | jq -r '.data.id')
   echo "Created state: $id"
-  echo "  Name: $(echo "$resp" | jq -r '.name')"
-  echo "  Type: $(echo "$resp" | jq -r '.type')"
+  echo "  Name: $(echo "$resp" | jq -r '.data.name')"
+  echo "  Type: $(echo "$resp" | jq -r '.data.type')"
 }
 
 # ---------------------------------------------------------------------------
@@ -1121,9 +1120,9 @@ cmd_rules_create() {
   fi
 
   local id
-  id=$(echo "$resp" | jq -r '.id')
+  id=$(echo "$resp" | jq -r '.data.id')
   echo "Created rule: $id"
-  echo "  Name: $(echo "$resp" | jq -r '.name')"
+  echo "  Name: $(echo "$resp" | jq -r '.data.name')"
 }
 
 # ---------------------------------------------------------------------------
@@ -1345,9 +1344,9 @@ cmd_fragments_list() {
     if [ -z "$qs" ]; then qs="?${k}=${v}"; else qs="${qs}&${k}=${v}"; fi
   }
 
-  append_frag_qs "type"   "$type"
-  append_frag_qs "search" "$search"
-  append_frag_qs "topic"  "$topic"
+  append_frag_qs "type"         "$type"
+  append_frag_qs "title_search" "$search"
+  append_frag_qs "topic"        "$topic"
 
   local resp
   resp=$(api_get "/api/v1/teams/${ADHED_TEAM_ID}/fragments${qs}")
@@ -1423,9 +1422,9 @@ cmd_fragments_create() {
   fi
 
   local id
-  id=$(echo "$resp" | jq -r '.id')
+  id=$(echo "$resp" | jq -r '.data.id')
   echo "Created fragment: $id"
-  echo "  Type: $(echo "$resp" | jq -r '.type')"
+  echo "  Type: $(echo "$resp" | jq -r '.data.type')"
 }
 
 # ---------------------------------------------------------------------------
@@ -1518,7 +1517,7 @@ cmd_teams_show() {
     return
   fi
 
-  echo "$resp" | jq -r '
+  echo "$resp" | jq -r '.data |
     "ID:       " + (.id // ""),
     "Name:     " + (.name // ""),
     "Key:      " + (.key // ""),
@@ -1579,7 +1578,7 @@ cmd_summary() {
     return
   fi
 
-  echo "$resp" | jq -r '
+  echo "$resp" | jq -r '.data |
     "Triage count: " + (.triage_count // 0 | tostring),
     "Overdue:      " + (.overdue_count // 0 | tostring),
     "Due soon:     " + (.due_soon_count // 0 | tostring),
