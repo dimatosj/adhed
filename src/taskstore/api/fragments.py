@@ -1,9 +1,10 @@
 import uuid
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from taskstore.api.deps import get_current_user, get_db, verified_team
+from taskstore.api.deps import get_team as get_authed_team
 from taskstore.models.team import Team
 from taskstore.models.user import User
 from taskstore.schemas.common import Envelope, Meta
@@ -13,7 +14,11 @@ from taskstore.services import fragment_service
 router = APIRouter(tags=["fragments"])
 
 
-@router.post("/api/v1/teams/{team_id}/fragments", status_code=201)
+@router.post(
+    "/api/v1/teams/{team_id}/fragments",
+    response_model=Envelope[FragmentResponse],
+    status_code=201,
+)
 async def create_fragment(
     team_id: uuid.UUID,
     data: FragmentCreate,
@@ -25,7 +30,10 @@ async def create_fragment(
     return Envelope(data=frag)
 
 
-@router.get("/api/v1/teams/{team_id}/fragments")
+@router.get(
+    "/api/v1/teams/{team_id}/fragments",
+    response_model=Envelope[list[FragmentResponse]],
+)
 async def list_fragments(
     team_id: uuid.UUID,
     team: Team = Depends(verified_team),
@@ -58,7 +66,10 @@ async def list_fragments(
     return Envelope(data=fragments, meta=Meta(total=total, limit=limit, offset=offset))
 
 
-@router.get("/api/v1/teams/{team_id}/fragments/topics")
+@router.get(
+    "/api/v1/teams/{team_id}/fragments/topics",
+    response_model=Envelope[list[TopicCount]],
+)
 async def list_topics(
     team_id: uuid.UUID,
     team: Team = Depends(verified_team),
@@ -68,24 +79,35 @@ async def list_topics(
     return Envelope(data=topics)
 
 
-@router.get("/api/v1/fragments/{fragment_id}")
+@router.get(
+    "/api/v1/fragments/{fragment_id}",
+    response_model=Envelope[FragmentResponse],
+)
 async def get_fragment(
     fragment_id: uuid.UUID,
-    team: Team = Depends(verified_team),
+    authed_team: Team = Depends(get_authed_team),
     db: AsyncSession = Depends(get_db),
 ):
     frag = await fragment_service.get_fragment(db, fragment_id)
+    if frag.team_id != authed_team.id:
+        raise HTTPException(status_code=403, detail="Forbidden")
     return Envelope(data=frag)
 
 
-@router.patch("/api/v1/fragments/{fragment_id}")
+@router.patch(
+    "/api/v1/fragments/{fragment_id}",
+    response_model=Envelope[FragmentResponse],
+)
 async def update_fragment(
     fragment_id: uuid.UUID,
     data: FragmentUpdate,
-    team: Team = Depends(verified_team),
+    authed_team: Team = Depends(get_authed_team),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    frag = await fragment_service.get_fragment(db, fragment_id)
+    if frag.team_id != authed_team.id:
+        raise HTTPException(status_code=403, detail="Forbidden")
     frag = await fragment_service.update_fragment(db, fragment_id, user.id, data)
     return Envelope(data=frag)
 
@@ -93,9 +115,12 @@ async def update_fragment(
 @router.delete("/api/v1/fragments/{fragment_id}")
 async def delete_fragment(
     fragment_id: uuid.UUID,
-    team: Team = Depends(verified_team),
+    authed_team: Team = Depends(get_authed_team),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    frag = await fragment_service.get_fragment(db, fragment_id)
+    if frag.team_id != authed_team.id:
+        raise HTTPException(status_code=403, detail="Forbidden")
     await fragment_service.delete_fragment(db, fragment_id, user.id)
     return Envelope(data={"deleted": True})
