@@ -46,6 +46,7 @@ async def create_fragment(
         created_by=user_id,
     )
     db.add(frag)
+    await db.flush()
     await record_audit(db, team_id, "fragment", frag.id, AuditAction.CREATE, user_id)
     await db.commit()
     await db.refresh(frag)
