@@ -13,7 +13,7 @@ Designed for bots, agents, and scripts, not humans clicking buttons.
 ## Why this exists
 
 Linear, Notion, Todoist, and friends are UI-first. Their APIs are
-an great, but the agents don't need the GUI. 
+ great, but the agents don't need the GUI. 
 
 ADHED is:
 
