@@ -39,6 +39,7 @@ class RuleTrigger(str, enum.Enum):
     ISSUE_COMMENT_ADDED = "issue.comment_added"
     PROJECT_STATE_CHANGED = "project.state_changed"
 
+
 class FragmentType(str, enum.Enum):
     PERSON = "person"
     PLACE = "place"

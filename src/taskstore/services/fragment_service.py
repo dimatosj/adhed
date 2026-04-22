@@ -6,12 +6,13 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from taskstore.engine.audit import record_audit
-from taskstore.models.enums import AuditAction, FragmentType
+from taskstore.models.enums import AuditAction
 from taskstore.models.fragment import Fragment
 from taskstore.schemas.fragment import FragmentCreate, FragmentResponse, FragmentUpdate, TopicCount
-from taskstore.utils.time import now_utc
 
 logger = logging.getLogger(__name__)
+
+FRAGMENT_SORT_COLUMNS = frozenset({"created_at", "updated_at", "type"})
 
 
 def _to_response(frag: Fragment) -> FragmentResponse:
@@ -136,8 +137,9 @@ async def list_fragments(
         )
 
     if entity_name:
+        escaped = entity_name.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         query = query.where(
-            Fragment.entities.cast(str).ilike(f"%{entity_name}%")
+            Fragment.entities.cast(str).ilike(f"%{escaped}%")
         )
 
     if title_search:
@@ -149,11 +151,12 @@ async def list_fragments(
     count_query = select(func.count()).select_from(query.subquery())
     total = (await db.execute(count_query)).scalar()
 
-    sort_col = getattr(Fragment, sort, Fragment.created_at)
+    sort_col = sort if sort in FRAGMENT_SORT_COLUMNS else "created_at"
+    col = getattr(Fragment, sort_col)
     if order == "asc":
-        query = query.order_by(sort_col.asc())
+        query = query.order_by(col.asc())
     else:
-        query = query.order_by(sort_col.desc())
+        query = query.order_by(col.desc())
 
     query = query.limit(min(limit, 200)).offset(offset)
     result = await db.execute(query)

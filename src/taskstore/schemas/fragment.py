@@ -28,7 +28,7 @@ class FragmentUpdate(BaseModel):
     text: str | None = None
     type: FragmentType | None = None
     summary: str | None = None
-    topics: list[str] | None = None
+    topics: list[str] | None = Field(default=None, max_length=3)
     domains: list[str] | None = None
     entities: list[dict] | None = None
     source: FragmentSource | None = None

@@ -112,7 +112,7 @@ async def update_fragment(
     return Envelope(data=frag)
 
 
-@router.delete("/api/v1/fragments/{fragment_id}")
+@router.delete("/api/v1/fragments/{fragment_id}", status_code=204)
 async def delete_fragment(
     fragment_id: uuid.UUID,
     authed_team: Team = Depends(get_authed_team),
@@ -123,4 +123,3 @@ async def delete_fragment(
     if frag.team_id != authed_team.id:
         raise HTTPException(status_code=403, detail="Forbidden")
     await fragment_service.delete_fragment(db, fragment_id, user.id)
-    return Envelope(data={"deleted": True})

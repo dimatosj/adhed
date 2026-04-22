@@ -149,7 +149,7 @@ async def test_delete_fragment(client, setup):
     frag_id = create.json()["data"]["id"]
 
     resp = await client.delete(f"/api/v1/fragments/{frag_id}", headers=headers)
-    assert resp.status_code == 200
+    assert resp.status_code == 204
 
     resp = await client.get(f"/api/v1/fragments/{frag_id}", headers=headers)
     assert resp.status_code == 404
