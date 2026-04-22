@@ -1,0 +1,1651 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+VERSION="1.0.0"
+CONFIG_FILE="$HOME/.config/dev-dashboard/config.json"
+
+# Config values — populated by load_config() or env overrides
+ADHED_URL="${ADHED_URL:-}"
+ADHED_API_KEY="${ADHED_API_KEY:-}"
+ADHED_TEAM_ID="${ADHED_TEAM_ID:-}"
+ADHED_USER_ID="${ADHED_USER_ID:-}"
+JSON_OUTPUT=false
+
+# Remaining args after global flag parsing
+REMAINING_ARGS=()
+
+# ---------------------------------------------------------------------------
+# Utilities
+# ---------------------------------------------------------------------------
+
+die() {
+  echo "adhed: $*" >&2
+  exit 1
+}
+
+load_config() {
+  [ -f "$CONFIG_FILE" ] || return 0
+  command -v jq &>/dev/null || return 0
+
+  [ -z "$ADHED_URL" ]      && ADHED_URL=$(jq -r '.adhed_url // empty'      "$CONFIG_FILE" 2>/dev/null || true)
+  [ -z "$ADHED_API_KEY" ]  && ADHED_API_KEY=$(jq -r '.adhed_api_key // empty'  "$CONFIG_FILE" 2>/dev/null || true)
+  [ -z "$ADHED_TEAM_ID" ]  && ADHED_TEAM_ID=$(jq -r '.adhed_team_id // empty'  "$CONFIG_FILE" 2>/dev/null || true)
+  [ -z "$ADHED_USER_ID" ]  && ADHED_USER_ID=$(jq -r '.adhed_user_id // empty'  "$CONFIG_FILE" 2>/dev/null || true)
+}
+
+require_config() {
+  [ -z "$ADHED_URL" ]      && die "ADHED URL not configured (set adhed_url in $CONFIG_FILE or \$ADHED_URL)"
+  [ -z "$ADHED_API_KEY" ]  && die "ADHED API key not configured (set adhed_api_key in $CONFIG_FILE or \$ADHED_API_KEY)"
+  [ -z "$ADHED_TEAM_ID" ]  && die "ADHED team ID not configured (set adhed_team_id in $CONFIG_FILE or \$ADHED_TEAM_ID)"
+  [ -z "$ADHED_USER_ID" ]  && die "ADHED user ID not configured (set adhed_user_id in $CONFIG_FILE or \$ADHED_USER_ID)"
+}
+
+# ---------------------------------------------------------------------------
+# Global flag parsing
+# ---------------------------------------------------------------------------
+
+parse_global_flags() {
+  REMAINING_ARGS=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --json)
+        JSON_OUTPUT=true
+        shift
+        ;;
+      --url)
+        ADHED_URL="${2:-}"; shift 2
+        ;;
+      --api-key)
+        ADHED_API_KEY="${2:-}"; shift 2
+        ;;
+      --team-id)
+        ADHED_TEAM_ID="${2:-}"; shift 2
+        ;;
+      --user-id)
+        ADHED_USER_ID="${2:-}"; shift 2
+        ;;
+      *)
+        REMAINING_ARGS+=("$1")
+        shift
+        ;;
+    esac
+  done
+}
+
+# ---------------------------------------------------------------------------
+# HTTP helpers
+# ---------------------------------------------------------------------------
+
+# Internal: run curl and surface HTTP errors
+_curl() {
+  curl -sf \
+    -H "X-API-Key: $ADHED_API_KEY" \
+    -H "X-User-Id: $ADHED_USER_ID" \
+    "$@"
+}
+
+api_get() {
+  local path="$1"
+  _curl "${ADHED_URL}${path}"
+}
+
+api_post() {
+  local path="$1" body="$2"
+  _curl -X POST \
+    -H "Content-Type: application/json" \
+    -d "$body" \
+    "${ADHED_URL}${path}"
+}
+
+api_patch() {
+  local path="$1" body="$2"
+  _curl -X PATCH \
+    -H "Content-Type: application/json" \
+    -d "$body" \
+    "${ADHED_URL}${path}"
+}
+
+api_delete() {
+  local path="$1"
+  _curl -X DELETE "${ADHED_URL}${path}"
+}
+
+check_errors() {
+  local resp="$1"
+  local detail
+  detail=$(echo "$resp" | jq -r '.detail // empty' 2>/dev/null || true)
+  if [ -n "$detail" ]; then
+    die "API error: $detail"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Resolution helpers
+# ---------------------------------------------------------------------------
+
+resolve_state() {
+  local name="$1"
+  require_config
+  local resp
+  resp=$(api_get "/api/v1/teams/${ADHED_TEAM_ID}/states")
+  check_errors "$resp"
+  local id
+  id=$(echo "$resp" | jq -r --arg n "$name" '.[] | select(.name == $n) | .id' 2>/dev/null | head -1)
+  [ -z "$id" ] && die "State not found: $name"
+  echo "$id"
+}
+
+resolve_project() {
+  local name="$1"
+  require_config
+  local resp
+  resp=$(api_get "/api/v1/teams/${ADHED_TEAM_ID}/projects")
+  check_errors "$resp"
+  local id
+  id=$(echo "$resp" | jq -r --arg n "$name" '.[] | select(.name == $n) | .id' 2>/dev/null | head -1)
+  [ -z "$id" ] && die "Project not found: $name"
+  echo "$id"
+}
+
+resolve_user() {
+  local name="$1"
+  require_config
+  local resp
+  resp=$(api_get "/api/v1/teams/${ADHED_TEAM_ID}/users")
+  check_errors "$resp"
+  local id
+  id=$(echo "$resp" | jq -r --arg n "$name" '.[] | select(.name == $n or .email == $n) | .id' 2>/dev/null | head -1)
+  [ -z "$id" ] && die "User not found: $name"
+  echo "$id"
+}
+
+# ---------------------------------------------------------------------------
+# cmd_health
+# ---------------------------------------------------------------------------
+
+cmd_health() {
+  require_config
+  local resp
+  resp=$(curl -sf "${ADHED_URL}/api/v1/health" 2>/dev/null) || die "Could not reach ADHED at ${ADHED_URL}"
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  local status
+  status=$(echo "$resp" | jq -r '.status // "ok"' 2>/dev/null || echo "ok")
+  echo "ADHED is up — status: $status"
+  echo "URL:     $ADHED_URL"
+  echo "Team ID: $ADHED_TEAM_ID"
+  echo "User ID: $ADHED_USER_ID"
+}
+
+# ---------------------------------------------------------------------------
+# cmd_issues (dispatcher)
+# ---------------------------------------------------------------------------
+
+cmd_issues() {
+  local subcmd="${1:-list}"
+  shift || true
+
+  case "$subcmd" in
+    list)         cmd_issues_list "$@" ;;
+    create)       cmd_issues_create "$@" ;;
+    show)         cmd_issues_show "$@" ;;
+    update)       cmd_issues_update "$@" ;;
+    delete)       cmd_issues_delete "$@" ;;
+    batch-create) cmd_issues_batch_create "$@" ;;
+    batch-update) cmd_issues_batch_update "$@" ;;
+    convert)      cmd_issues_convert "$@" ;;
+    comment)      cmd_issues_comment "$@" ;;
+    comments)     cmd_issues_comments "$@" ;;
+    --help|-h)
+      cat <<'EOF'
+Usage: adhed issues <subcommand> [options]
+
+Subcommands:
+  list          List issues (default)
+  create        Create a new issue
+  show          Show issue details
+  update        Update an issue
+  delete        Delete an issue
+  batch-create  Bulk create issues (JSON from stdin)
+  batch-update  Bulk update issues (JSON from stdin)
+  convert       Convert issue to project
+  comment       Add a comment to an issue
+  comments      List comments on an issue
+EOF
+      ;;
+    *) die "Unknown issues subcommand: $subcmd" ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
+# cmd_issues_list
+# ---------------------------------------------------------------------------
+
+cmd_issues_list() {
+  require_config
+
+  local project="" state_type="" assignee="" priority_min="" priority_max=""
+  local search="" limit="50" offset="0"
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --project)     project="${2:-}";     shift 2 ;;
+      --state-type)  state_type="${2:-}";  shift 2 ;;
+      --assignee)    assignee="${2:-}";    shift 2 ;;
+      --priority)    priority_min="${2:-}"; priority_max="${2:-}"; shift 2 ;;
+      --priority-min) priority_min="${2:-}"; shift 2 ;;
+      --priority-max) priority_max="${2:-}"; shift 2 ;;
+      --search)      search="${2:-}";      shift 2 ;;
+      --limit)       limit="${2:-}";       shift 2 ;;
+      --offset)      offset="${2:-}";      shift 2 ;;
+      *) die "Unknown flag: $1" ;;
+    esac
+  done
+
+  # Build query string
+  local qs=""
+  append_qs() {
+    local k="$1" v="$2"
+    [ -z "$v" ] && return
+    if [ -z "$qs" ]; then qs="?${k}=${v}"; else qs="${qs}&${k}=${v}"; fi
+  }
+
+  # Resolve project name to ID if given
+  if [ -n "$project" ]; then
+    project=$(resolve_project "$project")
+  fi
+
+  # Resolve assignee name to ID if given
+  if [ -n "$assignee" ]; then
+    local resolved_assignee
+    resolved_assignee=$(resolve_user "$assignee" 2>/dev/null || echo "$assignee")
+    assignee="$resolved_assignee"
+  fi
+
+  append_qs "project_id"   "$project"
+  append_qs "state_type"   "$state_type"
+  append_qs "assignee_id"  "$assignee"
+  append_qs "priority_min" "$priority_min"
+  append_qs "priority_max" "$priority_max"
+  append_qs "search"       "$search"
+  append_qs "limit"        "$limit"
+  append_qs "offset"       "$offset"
+
+  local resp
+  resp=$(api_get "/api/v1/teams/${ADHED_TEAM_ID}/issues${qs}")
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  # Table output: ID (first 8), PRIORITY, TITLE, STATE, ASSIGNEE (first 8), DUE
+  echo "$resp" | jq -r '
+    ["ID", "PRIORITY", "TITLE", "STATE", "ASSIGNEE", "DUE"],
+    (.[] | [
+      (.id // "" | .[0:8]),
+      (.priority // "" | tostring),
+      (.title // "" | .[0:40]),
+      (.state.name // ""),
+      (.assignee.id // "" | .[0:8]),
+      (.due_date // "")
+    ])
+    | @tsv
+  ' | column -t -s $'\t'
+}
+
+# ---------------------------------------------------------------------------
+# cmd_issues_create
+# ---------------------------------------------------------------------------
+
+cmd_issues_create() {
+  require_config
+
+  local title="" priority="" type="" project="" assignee="" description="" due_date=""
+
+  # First positional arg is the title
+  if [ $# -gt 0 ] && [[ "${1:-}" != --* ]]; then
+    title="$1"
+    shift
+  fi
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --priority)    priority="${2:-}";    shift 2 ;;
+      --type)        type="${2:-}";        shift 2 ;;
+      --project)     project="${2:-}";     shift 2 ;;
+      --assignee)    assignee="${2:-}";    shift 2 ;;
+      --description) description="${2:-}"; shift 2 ;;
+      --due-date)    due_date="${2:-}";    shift 2 ;;
+      --title)       title="${2:-}";       shift 2 ;;
+      *) die "Unknown flag: $1" ;;
+    esac
+  done
+
+  [ -z "$title" ] && die "Title is required (first positional arg or --title)"
+
+  # Resolve project name to ID
+  if [ -n "$project" ]; then
+    project=$(resolve_project "$project")
+  fi
+
+  # Resolve assignee name to ID, fall back to value as-is
+  if [ -n "$assignee" ]; then
+    local resolved_assignee
+    resolved_assignee=$(resolve_user "$assignee" 2>/dev/null || echo "$assignee")
+    assignee="$resolved_assignee"
+  fi
+
+  # Build JSON body
+  local body
+  body=$(jq -n \
+    --arg title "$title" \
+    --arg priority "$priority" \
+    --arg type "$type" \
+    --arg project_id "$project" \
+    --arg assignee_id "$assignee" \
+    --arg description "$description" \
+    --arg due_date "$due_date" \
+    '{
+      title: $title,
+      priority: (if $priority != "" then ($priority | tonumber) else null end),
+      type: (if $type != "" then $type else null end),
+      project_id: (if $project_id != "" then $project_id else null end),
+      assignee_id: (if $assignee_id != "" then $assignee_id else null end),
+      description: (if $description != "" then $description else null end),
+      due_date: (if $due_date != "" then $due_date else null end)
+    } | with_entries(select(.value != null))')
+
+  local resp
+  resp=$(api_post "/api/v1/teams/${ADHED_TEAM_ID}/issues" "$body")
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  local id
+  id=$(echo "$resp" | jq -r '.id')
+  echo "Created issue: $id"
+  echo "  Title: $(echo "$resp" | jq -r '.title')"
+}
+
+# ---------------------------------------------------------------------------
+# cmd_issues_show
+# ---------------------------------------------------------------------------
+
+cmd_issues_show() {
+  require_config
+
+  local issue_id="${1:-}"
+  [ -z "$issue_id" ] && die "Usage: adhed issues show <issue-id>"
+
+  local resp
+  resp=$(api_get "/api/v1/teams/${ADHED_TEAM_ID}/issues/${issue_id}")
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  echo "$resp" | jq -r '
+    "ID:          " + (.id // ""),
+    "Title:       " + (.title // ""),
+    "Type:        " + (.type // ""),
+    "Priority:    " + (.priority // "" | tostring),
+    "State:       " + (.state.name // ""),
+    "Assignee:    " + (.assignee.name // ""),
+    "Project:     " + (.project.name // ""),
+    "Due:         " + (.due_date // ""),
+    "Created:     " + (.created_at // ""),
+    "Description: " + (.description // "")
+  '
+}
+
+# ---------------------------------------------------------------------------
+# cmd_issues_update
+# ---------------------------------------------------------------------------
+
+cmd_issues_update() {
+  require_config
+
+  local issue_id="${1:-}"
+  [ -z "$issue_id" ] && die "Usage: adhed issues update <issue-id> [flags]"
+  shift
+
+  local state="" priority="" assignee="" project="" due_date="" title="" description=""
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --state)       state="${2:-}";       shift 2 ;;
+      --priority)    priority="${2:-}";    shift 2 ;;
+      --assignee)    assignee="${2:-}";    shift 2 ;;
+      --project)     project="${2:-}";     shift 2 ;;
+      --due-date)    due_date="${2:-}";    shift 2 ;;
+      --title)       title="${2:-}";       shift 2 ;;
+      --description) description="${2:-}"; shift 2 ;;
+      *) die "Unknown flag: $1" ;;
+    esac
+  done
+
+  # Resolve state name to ID
+  local state_id=""
+  if [ -n "$state" ]; then
+    state_id=$(resolve_state "$state")
+  fi
+
+  # Resolve project name to ID
+  if [ -n "$project" ]; then
+    project=$(resolve_project "$project")
+  fi
+
+  # Resolve assignee name to ID, fall back to value as-is
+  if [ -n "$assignee" ]; then
+    local resolved_assignee
+    resolved_assignee=$(resolve_user "$assignee" 2>/dev/null || echo "$assignee")
+    assignee="$resolved_assignee"
+  fi
+
+  local body
+  body=$(jq -n \
+    --arg state_id "$state_id" \
+    --arg priority "$priority" \
+    --arg assignee_id "$assignee" \
+    --arg project_id "$project" \
+    --arg due_date "$due_date" \
+    --arg title "$title" \
+    --arg description "$description" \
+    '{
+      state_id: (if $state_id != "" then $state_id else null end),
+      priority: (if $priority != "" then ($priority | tonumber) else null end),
+      assignee_id: (if $assignee_id != "" then $assignee_id else null end),
+      project_id: (if $project_id != "" then $project_id else null end),
+      due_date: (if $due_date != "" then $due_date else null end),
+      title: (if $title != "" then $title else null end),
+      description: (if $description != "" then $description else null end)
+    } | with_entries(select(.value != null))')
+
+  local resp
+  resp=$(api_patch "/api/v1/teams/${ADHED_TEAM_ID}/issues/${issue_id}" "$body")
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  echo "Updated issue: $issue_id"
+}
+
+# ---------------------------------------------------------------------------
+# cmd_issues_delete
+# ---------------------------------------------------------------------------
+
+cmd_issues_delete() {
+  require_config
+
+  local issue_id="${1:-}"
+  [ -z "$issue_id" ] && die "Usage: adhed issues delete <issue-id>"
+
+  local resp
+  resp=$(api_delete "/api/v1/teams/${ADHED_TEAM_ID}/issues/${issue_id}")
+
+  if $JSON_OUTPUT; then
+    echo "${resp:-{\}}"
+    return
+  fi
+
+  echo "Deleted issue: $issue_id"
+}
+
+# ---------------------------------------------------------------------------
+# cmd_issues_batch_create
+# ---------------------------------------------------------------------------
+
+cmd_issues_batch_create() {
+  require_config
+
+  local body
+  body=$(cat)
+  [ -z "$body" ] && die "No JSON provided on stdin"
+
+  local resp
+  resp=$(api_post "/api/v1/teams/${ADHED_TEAM_ID}/issues/batch" "$body")
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  local count
+  count=$(echo "$resp" | jq 'length' 2>/dev/null || echo "?")
+  echo "Batch created $count issues"
+}
+
+# ---------------------------------------------------------------------------
+# cmd_issues_batch_update
+# ---------------------------------------------------------------------------
+
+cmd_issues_batch_update() {
+  require_config
+
+  local body
+  body=$(cat)
+  [ -z "$body" ] && die "No JSON provided on stdin"
+
+  local resp
+  resp=$(api_patch "/api/v1/teams/${ADHED_TEAM_ID}/issues/batch" "$body")
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  local count
+  count=$(echo "$resp" | jq 'length' 2>/dev/null || echo "?")
+  echo "Batch updated $count issues"
+}
+
+# ---------------------------------------------------------------------------
+# cmd_issues_convert
+# ---------------------------------------------------------------------------
+
+cmd_issues_convert() {
+  require_config
+
+  local issue_id="${1:-}"
+  [ -z "$issue_id" ] && die "Usage: adhed issues convert <issue-id>"
+
+  local resp
+  resp=$(api_post "/api/v1/teams/${ADHED_TEAM_ID}/issues/${issue_id}/convert-to-project" "{}")
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  local project_id
+  project_id=$(echo "$resp" | jq -r '.id // empty')
+  echo "Converted issue $issue_id to project: ${project_id:-$resp}"
+}
+
+# ---------------------------------------------------------------------------
+# cmd_issues_comment
+# ---------------------------------------------------------------------------
+
+cmd_issues_comment() {
+  require_config
+
+  local issue_id="${1:-}" body_text="${2:-}"
+  [ -z "$issue_id" ] && die "Usage: adhed issues comment <issue-id> <body>"
+  [ -z "$body_text" ] && die "Usage: adhed issues comment <issue-id> <body>"
+
+  local body
+  body=$(jq -n --arg body "$body_text" '{body: $body}')
+
+  local resp
+  resp=$(api_post "/api/v1/teams/${ADHED_TEAM_ID}/issues/${issue_id}/comments" "$body")
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  local comment_id
+  comment_id=$(echo "$resp" | jq -r '.id // empty')
+  echo "Comment added: ${comment_id}"
+}
+
+# ---------------------------------------------------------------------------
+# cmd_issues_comments
+# ---------------------------------------------------------------------------
+
+cmd_issues_comments() {
+  require_config
+
+  local issue_id="${1:-}"
+  [ -z "$issue_id" ] && die "Usage: adhed issues comments <issue-id>"
+
+  local resp
+  resp=$(api_get "/api/v1/teams/${ADHED_TEAM_ID}/issues/${issue_id}/comments")
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  echo "$resp" | jq -r '
+    ["ID", "AUTHOR", "CREATED", "BODY"],
+    (.[] | [
+      (.id // "" | .[0:8]),
+      (.author.name // .author_id // ""),
+      (.created_at // "" | .[0:19]),
+      (.body // "" | .[0:60])
+    ])
+    | @tsv
+  ' | column -t -s $'\t'
+}
+
+# ---------------------------------------------------------------------------
+# cmd_projects (dispatcher)
+# ---------------------------------------------------------------------------
+
+cmd_projects() {
+  local subcmd="${1:-list}"
+  shift || true
+
+  case "$subcmd" in
+    list)   cmd_projects_list "$@" ;;
+    create) cmd_projects_create "$@" ;;
+    update) cmd_projects_update "$@" ;;
+    --help|-h)
+      cat <<'EOF'
+Usage: adhed projects <subcommand> [options]
+
+Subcommands:
+  list    List projects (default)
+  create  Create a new project
+  update  Update a project
+EOF
+      ;;
+    *) die "Unknown projects subcommand: $subcmd" ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
+# cmd_projects_list
+# ---------------------------------------------------------------------------
+
+cmd_projects_list() {
+  require_config
+
+  local resp
+  resp=$(api_get "/api/v1/teams/${ADHED_TEAM_ID}/projects")
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  echo "$resp" | jq -r '
+    ["ID", "NAME", "STATE", "DESCRIPTION"],
+    (.[] | [
+      (.id // "" | .[0:8]),
+      (.name // ""),
+      (.state // ""),
+      (.description // "" | .[0:40])
+    ])
+    | @tsv
+  ' | column -t -s $'\t'
+}
+
+# ---------------------------------------------------------------------------
+# cmd_projects_create
+# ---------------------------------------------------------------------------
+
+cmd_projects_create() {
+  require_config
+
+  local name="${1:-}"
+  [ -z "$name" ] && die "Usage: adhed projects create <name> [--description TEXT]"
+  shift
+
+  local description=""
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --description) description="${2:-}"; shift 2 ;;
+      *) die "Unknown flag: $1" ;;
+    esac
+  done
+
+  local body
+  body=$(jq -n \
+    --arg name "$name" \
+    --arg description "$description" \
+    '{
+      name: $name,
+      description: (if $description != "" then $description else null end)
+    } | with_entries(select(.value != null))')
+
+  local resp
+  resp=$(api_post "/api/v1/teams/${ADHED_TEAM_ID}/projects" "$body")
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  local id
+  id=$(echo "$resp" | jq -r '.id')
+  echo "Created project: $id"
+  echo "  Name: $(echo "$resp" | jq -r '.name')"
+}
+
+# ---------------------------------------------------------------------------
+# cmd_projects_update
+# ---------------------------------------------------------------------------
+
+cmd_projects_update() {
+  require_config
+
+  local project_id="${1:-}"
+  [ -z "$project_id" ] && die "Usage: adhed projects update <project-id> [flags]"
+  shift
+
+  local state="" name="" description=""
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --state)       state="${2:-}";       shift 2 ;;
+      --name)        name="${2:-}";        shift 2 ;;
+      --description) description="${2:-}"; shift 2 ;;
+      *) die "Unknown flag: $1" ;;
+    esac
+  done
+
+  local body
+  body=$(jq -n \
+    --arg state "$state" \
+    --arg name "$name" \
+    --arg description "$description" \
+    '{
+      state: (if $state != "" then $state else null end),
+      name: (if $name != "" then $name else null end),
+      description: (if $description != "" then $description else null end)
+    } | with_entries(select(.value != null))')
+
+  local resp
+  resp=$(api_patch "/api/v1/teams/${ADHED_TEAM_ID}/projects/${project_id}" "$body")
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  echo "Updated project: $project_id"
+}
+
+# ---------------------------------------------------------------------------
+# cmd_labels (dispatcher)
+# ---------------------------------------------------------------------------
+
+cmd_labels() {
+  local subcmd="${1:-list}"
+  shift || true
+
+  case "$subcmd" in
+    list)   cmd_labels_list "$@" ;;
+    create) cmd_labels_create "$@" ;;
+    delete) cmd_labels_delete "$@" ;;
+    --help|-h)
+      cat <<'EOF'
+Usage: adhed labels <subcommand> [options]
+
+Subcommands:
+  list    List labels (default)
+  create  Create a new label
+  delete  Delete a label
+EOF
+      ;;
+    *) die "Unknown labels subcommand: $subcmd" ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
+# cmd_labels_list
+# ---------------------------------------------------------------------------
+
+cmd_labels_list() {
+  require_config
+
+  local resp
+  resp=$(api_get "/api/v1/teams/${ADHED_TEAM_ID}/labels")
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  echo "$resp" | jq -r '
+    ["ID", "NAME", "COLOR"],
+    (.[] | [
+      (.id // "" | .[0:8]),
+      (.name // ""),
+      (.color // "")
+    ])
+    | @tsv
+  ' | column -t -s $'\t'
+}
+
+# ---------------------------------------------------------------------------
+# cmd_labels_create
+# ---------------------------------------------------------------------------
+
+cmd_labels_create() {
+  require_config
+
+  local name="${1:-}"
+  [ -z "$name" ] && die "Usage: adhed labels create <name> [--color COLOR]"
+  shift
+
+  local color=""
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --color) color="${2:-}"; shift 2 ;;
+      *) die "Unknown flag: $1" ;;
+    esac
+  done
+
+  local body
+  body=$(jq -n \
+    --arg name "$name" \
+    --arg color "$color" \
+    '{
+      name: $name,
+      color: (if $color != "" then $color else null end)
+    } | with_entries(select(.value != null))')
+
+  local resp
+  resp=$(api_post "/api/v1/teams/${ADHED_TEAM_ID}/labels" "$body")
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  local id
+  id=$(echo "$resp" | jq -r '.id')
+  echo "Created label: $id"
+  echo "  Name: $(echo "$resp" | jq -r '.name')"
+}
+
+# ---------------------------------------------------------------------------
+# cmd_labels_delete
+# ---------------------------------------------------------------------------
+
+cmd_labels_delete() {
+  require_config
+
+  local label_id="${1:-}"
+  [ -z "$label_id" ] && die "Usage: adhed labels delete <label-id>"
+
+  local resp
+  resp=$(api_delete "/api/v1/teams/${ADHED_TEAM_ID}/labels/${label_id}")
+
+  if $JSON_OUTPUT; then
+    echo "${resp:-{\}}"
+    return
+  fi
+
+  echo "Deleted label: $label_id"
+}
+
+# ---------------------------------------------------------------------------
+# cmd_states (dispatcher)
+# ---------------------------------------------------------------------------
+
+cmd_states() {
+  local subcmd="${1:-list}"
+  shift || true
+
+  case "$subcmd" in
+    list)   cmd_states_list "$@" ;;
+    create) cmd_states_create "$@" ;;
+    --help|-h)
+      cat <<'EOF'
+Usage: adhed states <subcommand> [options]
+
+Subcommands:
+  list    List states (default)
+  create  Create a new state
+EOF
+      ;;
+    *) die "Unknown states subcommand: $subcmd" ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
+# cmd_states_list
+# ---------------------------------------------------------------------------
+
+cmd_states_list() {
+  require_config
+
+  local resp
+  resp=$(api_get "/api/v1/teams/${ADHED_TEAM_ID}/states")
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  echo "$resp" | jq -r '
+    ["ID", "NAME", "TYPE", "POSITION"],
+    (.[] | [
+      (.id // "" | .[0:8]),
+      (.name // ""),
+      (.type // ""),
+      (.position // "" | tostring)
+    ])
+    | @tsv
+  ' | column -t -s $'\t'
+}
+
+# ---------------------------------------------------------------------------
+# cmd_states_create
+# ---------------------------------------------------------------------------
+
+cmd_states_create() {
+  require_config
+
+  local name="${1:-}"
+  [ -z "$name" ] && die "Usage: adhed states create <name> --type TYPE"
+  shift
+
+  local type=""
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --type) type="${2:-}"; shift 2 ;;
+      *) die "Unknown flag: $1" ;;
+    esac
+  done
+
+  [ -z "$type" ] && die "--type is required (TRIAGE|BACKLOG|UNSTARTED|STARTED|COMPLETED|CANCELED)"
+
+  local body
+  body=$(jq -n \
+    --arg name "$name" \
+    --arg type "$type" \
+    '{name: $name, type: $type}')
+
+  local resp
+  resp=$(api_post "/api/v1/teams/${ADHED_TEAM_ID}/states" "$body")
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  local id
+  id=$(echo "$resp" | jq -r '.id')
+  echo "Created state: $id"
+  echo "  Name: $(echo "$resp" | jq -r '.name')"
+  echo "  Type: $(echo "$resp" | jq -r '.type')"
+}
+
+# ---------------------------------------------------------------------------
+# cmd_rules (dispatcher)
+# ---------------------------------------------------------------------------
+
+cmd_rules() {
+  local subcmd="${1:-list}"
+  shift || true
+
+  case "$subcmd" in
+    list)   cmd_rules_list "$@" ;;
+    create) cmd_rules_create "$@" ;;
+    update) cmd_rules_update "$@" ;;
+    delete) cmd_rules_delete "$@" ;;
+    --help|-h)
+      cat <<'EOF'
+Usage: adhed rules <subcommand> [options]
+
+Subcommands:
+  list    List rules (default)
+  create  Create a new rule
+  update  Update a rule
+  delete  Delete a rule
+EOF
+      ;;
+    *) die "Unknown rules subcommand: $subcmd" ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
+# cmd_rules_list
+# ---------------------------------------------------------------------------
+
+cmd_rules_list() {
+  require_config
+
+  local resp
+  resp=$(api_get "/api/v1/teams/${ADHED_TEAM_ID}/rules")
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  echo "$resp" | jq -r '
+    ["ID", "NAME", "TRIGGER", "ENABLED", "PRIORITY"],
+    (.[] | [
+      (.id // "" | .[0:8]),
+      (.name // ""),
+      (.trigger // ""),
+      (.enabled // false | tostring),
+      (.priority // "" | tostring)
+    ])
+    | @tsv
+  ' | column -t -s $'\t'
+}
+
+# ---------------------------------------------------------------------------
+# cmd_rules_create
+# ---------------------------------------------------------------------------
+
+cmd_rules_create() {
+  require_config
+
+  local name="${1:-}"
+  [ -z "$name" ] && die "Usage: adhed rules create <name> --trigger TRIGGER --conditions-file FILE --actions-file FILE [--priority N]"
+  shift
+
+  local trigger="" conditions_file="" actions_file="" priority=""
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --trigger)         trigger="${2:-}";         shift 2 ;;
+      --conditions-file) conditions_file="${2:-}"; shift 2 ;;
+      --actions-file)    actions_file="${2:-}";    shift 2 ;;
+      --priority)        priority="${2:-}";        shift 2 ;;
+      *) die "Unknown flag: $1" ;;
+    esac
+  done
+
+  [ -z "$trigger" ]         && die "--trigger is required"
+  [ -z "$conditions_file" ] && die "--conditions-file is required"
+  [ -z "$actions_file" ]    && die "--actions-file is required"
+  [ -f "$conditions_file" ] || die "Conditions file not found: $conditions_file"
+  [ -f "$actions_file" ]    || die "Actions file not found: $actions_file"
+
+  local conditions actions
+  conditions=$(cat "$conditions_file")
+  actions=$(cat "$actions_file")
+
+  local body
+  body=$(jq -n \
+    --arg name "$name" \
+    --arg trigger "$trigger" \
+    --argjson conditions "$conditions" \
+    --argjson actions "$actions" \
+    --arg priority "$priority" \
+    '{
+      name: $name,
+      trigger: $trigger,
+      conditions: $conditions,
+      actions: $actions,
+      priority: (if $priority != "" then ($priority | tonumber) else null end)
+    } | with_entries(select(.value != null))')
+
+  local resp
+  resp=$(api_post "/api/v1/teams/${ADHED_TEAM_ID}/rules" "$body")
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  local id
+  id=$(echo "$resp" | jq -r '.id')
+  echo "Created rule: $id"
+  echo "  Name: $(echo "$resp" | jq -r '.name')"
+}
+
+# ---------------------------------------------------------------------------
+# cmd_rules_update
+# ---------------------------------------------------------------------------
+
+cmd_rules_update() {
+  require_config
+
+  local rule_id="${1:-}"
+  [ -z "$rule_id" ] && die "Usage: adhed rules update <rule-id> [--enabled true|false] [--priority N]"
+  shift
+
+  local enabled="" priority=""
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --enabled)  enabled="${2:-}";  shift 2 ;;
+      --priority) priority="${2:-}"; shift 2 ;;
+      *) die "Unknown flag: $1" ;;
+    esac
+  done
+
+  local body
+  body=$(jq -n \
+    --arg enabled "$enabled" \
+    --arg priority "$priority" \
+    '{
+      enabled: (if $enabled != "" then ($enabled == "true") else null end),
+      priority: (if $priority != "" then ($priority | tonumber) else null end)
+    } | with_entries(select(.value != null))')
+
+  local resp
+  resp=$(api_patch "/api/v1/rules/${rule_id}" "$body")
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  echo "Updated rule: $rule_id"
+}
+
+# ---------------------------------------------------------------------------
+# cmd_rules_delete
+# ---------------------------------------------------------------------------
+
+cmd_rules_delete() {
+  require_config
+
+  local rule_id="${1:-}"
+  [ -z "$rule_id" ] && die "Usage: adhed rules delete <rule-id>"
+
+  local resp
+  resp=$(api_delete "/api/v1/rules/${rule_id}")
+
+  if $JSON_OUTPUT; then
+    echo "${resp:-{\}}"
+    return
+  fi
+
+  echo "Deleted rule: $rule_id"
+}
+
+# ---------------------------------------------------------------------------
+# cmd_comments (dispatcher — aliases for issues comment/comments)
+# ---------------------------------------------------------------------------
+
+cmd_comments() {
+  local subcmd="${1:-list}"
+  shift || true
+
+  case "$subcmd" in
+    list)   cmd_comments_list "$@" ;;
+    create) cmd_comments_create "$@" ;;
+    --help|-h)
+      cat <<'EOF'
+Usage: adhed comments <subcommand> [options]
+
+Subcommands:
+  list    List comments on an issue (default)
+  create  Add a comment to an issue
+EOF
+      ;;
+    *) die "Unknown comments subcommand: $subcmd" ;;
+  esac
+}
+
+cmd_comments_list() {
+  local issue_id="${1:-}"
+  [ -z "$issue_id" ] && die "Usage: adhed comments list <issue-id>"
+  cmd_issues_comments "$issue_id"
+}
+
+cmd_comments_create() {
+  local issue_id="${1:-}" body_text="${2:-}"
+  [ -z "$issue_id" ]   && die "Usage: adhed comments create <issue-id> <body>"
+  [ -z "$body_text" ]  && die "Usage: adhed comments create <issue-id> <body>"
+  cmd_issues_comment "$issue_id" "$body_text"
+}
+
+# ---------------------------------------------------------------------------
+# cmd_audit
+# ---------------------------------------------------------------------------
+
+cmd_audit() {
+  require_config
+
+  local entity_type="" entity_id="" limit="50"
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --entity-type) entity_type="${2:-}"; shift 2 ;;
+      --entity-id)   entity_id="${2:-}";   shift 2 ;;
+      --limit)       limit="${2:-}";       shift 2 ;;
+      *) die "Unknown flag: $1" ;;
+    esac
+  done
+
+  local qs=""
+  append_audit_qs() {
+    local k="$1" v="$2"
+    [ -z "$v" ] && return
+    if [ -z "$qs" ]; then qs="?${k}=${v}"; else qs="${qs}&${k}=${v}"; fi
+  }
+
+  append_audit_qs "entity_type" "$entity_type"
+  append_audit_qs "entity_id"   "$entity_id"
+  append_audit_qs "limit"       "$limit"
+
+  local resp
+  resp=$(api_get "/api/v1/teams/${ADHED_TEAM_ID}/audit${qs}")
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  echo "$resp" | jq -r '
+    ["WHEN", "ACTION", "TYPE", "ENTITY", "USER"],
+    (.[] | [
+      (.created_at // "" | .[0:19]),
+      (.action // ""),
+      (.entity_type // ""),
+      (.entity_id // "" | .[0:8]),
+      (.user_id // "" | .[0:8])
+    ])
+    | @tsv
+  ' | column -t -s $'\t'
+}
+
+# ---------------------------------------------------------------------------
+# cmd_notifications
+# ---------------------------------------------------------------------------
+
+cmd_notifications() {
+  require_config
+
+  local resp
+  resp=$(api_get "/api/v1/teams/${ADHED_TEAM_ID}/notifications")
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  echo "$resp" | jq -r '.[] | "[" + (.created_at // "" | .[0:19]) + "] " + (.message // "")'
+}
+
+# ---------------------------------------------------------------------------
+# cmd_fragments (dispatcher)
+# ---------------------------------------------------------------------------
+
+cmd_fragments() {
+  local subcmd="${1:-list}"
+  shift || true
+
+  case "$subcmd" in
+    list)   cmd_fragments_list "$@" ;;
+    create) cmd_fragments_create "$@" ;;
+    --help|-h)
+      cat <<'EOF'
+Usage: adhed fragments <subcommand> [options]
+
+Subcommands:
+  list    List knowledge fragments (default)
+  create  Create a new fragment
+EOF
+      ;;
+    *) die "Unknown fragments subcommand: $subcmd" ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
+# cmd_fragments_list
+# ---------------------------------------------------------------------------
+
+cmd_fragments_list() {
+  require_config
+
+  local type="" search="" topic=""
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --type)   type="${2:-}";   shift 2 ;;
+      --search) search="${2:-}"; shift 2 ;;
+      --topic)  topic="${2:-}";  shift 2 ;;
+      *) die "Unknown flag: $1" ;;
+    esac
+  done
+
+  local qs=""
+  append_frag_qs() {
+    local k="$1" v="$2"
+    [ -z "$v" ] && return
+    if [ -z "$qs" ]; then qs="?${k}=${v}"; else qs="${qs}&${k}=${v}"; fi
+  }
+
+  append_frag_qs "type"   "$type"
+  append_frag_qs "search" "$search"
+  append_frag_qs "topic"  "$topic"
+
+  local resp
+  resp=$(api_get "/api/v1/teams/${ADHED_TEAM_ID}/fragments${qs}")
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  echo "$resp" | jq -r '
+    ["ID", "TYPE", "SUMMARY", "TOPICS"],
+    (.[] | [
+      (.id // "" | .[0:8]),
+      (.type // ""),
+      (.summary // "" | .[0:40]),
+      ((.topics // []) | join(", "))
+    ])
+    | @tsv
+  ' | column -t -s $'\t'
+}
+
+# ---------------------------------------------------------------------------
+# cmd_fragments_create
+# ---------------------------------------------------------------------------
+
+cmd_fragments_create() {
+  require_config
+
+  local text="${1:-}"
+  [ -z "$text" ] && die "Usage: adhed fragments create <text> --type TYPE [--summary TEXT] [--topics topic1,topic2]"
+  shift
+
+  local type="" summary="" topics_raw=""
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --type)    type="${2:-}";       shift 2 ;;
+      --summary) summary="${2:-}";    shift 2 ;;
+      --topics)  topics_raw="${2:-}"; shift 2 ;;
+      *) die "Unknown flag: $1" ;;
+    esac
+  done
+
+  [ -z "$type" ] && die "--type is required"
+
+  # Convert comma-separated topics to JSON array
+  local topics_json="[]"
+  if [ -n "$topics_raw" ]; then
+    topics_json=$(echo "$topics_raw" | jq -R 'split(",")')
+  fi
+
+  local body
+  body=$(jq -n \
+    --arg text "$text" \
+    --arg type "$type" \
+    --arg summary "$summary" \
+    --argjson topics "$topics_json" \
+    '{
+      text: $text,
+      type: $type,
+      summary: (if $summary != "" then $summary else null end),
+      topics: $topics
+    } | with_entries(select(.value != null))')
+
+  local resp
+  resp=$(api_post "/api/v1/teams/${ADHED_TEAM_ID}/fragments" "$body")
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  local id
+  id=$(echo "$resp" | jq -r '.id')
+  echo "Created fragment: $id"
+  echo "  Type: $(echo "$resp" | jq -r '.type')"
+}
+
+# ---------------------------------------------------------------------------
+# cmd_users (dispatcher)
+# ---------------------------------------------------------------------------
+
+cmd_users() {
+  local subcmd="${1:-list}"
+  shift || true
+
+  case "$subcmd" in
+    list) cmd_users_list "$@" ;;
+    --help|-h)
+      cat <<'EOF'
+Usage: adhed users <subcommand> [options]
+
+Subcommands:
+  list  List team members (default)
+EOF
+      ;;
+    *) die "Unknown users subcommand: $subcmd" ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
+# cmd_users_list
+# ---------------------------------------------------------------------------
+
+cmd_users_list() {
+  require_config
+
+  local resp
+  resp=$(api_get "/api/v1/teams/${ADHED_TEAM_ID}/users")
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  echo "$resp" | jq -r '
+    ["ID", "NAME", "EMAIL", "ROLE"],
+    (.[] | [
+      (.id // "" | .[0:8]),
+      (.name // ""),
+      (.email // ""),
+      (.role // "")
+    ])
+    | @tsv
+  ' | column -t -s $'\t'
+}
+
+# ---------------------------------------------------------------------------
+# cmd_teams (dispatcher)
+# ---------------------------------------------------------------------------
+
+cmd_teams() {
+  local subcmd="${1:-show}"
+  shift || true
+
+  case "$subcmd" in
+    show)   cmd_teams_show "$@" ;;
+    update) cmd_teams_update "$@" ;;
+    --help|-h)
+      cat <<'EOF'
+Usage: adhed teams <subcommand> [options]
+
+Subcommands:
+  show    Show team details (default)
+  update  Update team settings
+EOF
+      ;;
+    *) die "Unknown teams subcommand: $subcmd" ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
+# cmd_teams_show
+# ---------------------------------------------------------------------------
+
+cmd_teams_show() {
+  require_config
+
+  local resp
+  resp=$(api_get "/api/v1/teams/${ADHED_TEAM_ID}")
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  echo "$resp" | jq -r '
+    "ID:       " + (.id // ""),
+    "Name:     " + (.name // ""),
+    "Key:      " + (.key // ""),
+    "Settings: " + (.settings // {} | tostring)
+  '
+}
+
+# ---------------------------------------------------------------------------
+# cmd_teams_update
+# ---------------------------------------------------------------------------
+
+cmd_teams_update() {
+  require_config
+
+  local triage_enabled=""
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --triage-enabled) triage_enabled="${2:-}"; shift 2 ;;
+      *) die "Unknown flag: $1" ;;
+    esac
+  done
+
+  local body
+  body=$(jq -n \
+    --arg triage_enabled "$triage_enabled" \
+    '{
+      settings: {
+        triage_enabled: (if $triage_enabled != "" then ($triage_enabled == "true") else null end)
+      }
+    } | .settings |= with_entries(select(.value != null))')
+
+  local resp
+  resp=$(api_patch "/api/v1/teams/${ADHED_TEAM_ID}" "$body")
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  echo "Updated team: $ADHED_TEAM_ID"
+}
+
+# ---------------------------------------------------------------------------
+# cmd_summary
+# ---------------------------------------------------------------------------
+
+cmd_summary() {
+  require_config
+
+  local resp
+  resp=$(api_get "/api/v1/teams/${ADHED_TEAM_ID}/summary")
+  check_errors "$resp"
+
+  if $JSON_OUTPUT; then
+    echo "$resp"
+    return
+  fi
+
+  echo "$resp" | jq -r '
+    "Triage count: " + (.triage_count // 0 | tostring),
+    "Overdue:      " + (.overdue_count // 0 | tostring),
+    "Due soon:     " + (.due_soon_count // 0 | tostring),
+    "Stalled:      " + (.stalled_count // 0 | tostring),
+    "",
+    "By state type:",
+    ((.by_state_type // {}) | to_entries[] | "  " + .key + ": " + (.value | tostring))
+  '
+}
+
+# ---------------------------------------------------------------------------
+# Usage
+# ---------------------------------------------------------------------------
+
+usage() {
+  cat <<'USAGE'
+adhed — CLI for ADHED issue tracker
+
+Usage: adhed <command> [subcommand] [options]
+
+Commands:
+  health                          Check ADHED connection
+  issues   list|create|show|update|delete|batch-create|batch-update|convert|comment|comments
+  projects list|create|update
+  labels   list|create|delete
+  states   list|create
+  rules    list|create|update|delete
+  comments list|create
+  audit                           View audit log
+  notifications                   View notifications
+  fragments list|create
+  users    list
+  teams    show|update
+  summary                        Dashboard summary
+
+Global flags:
+  --json                          Output raw JSON
+  --url URL                       Override ADHED URL
+  --api-key KEY                   Override API key
+  --team-id ID                    Override team ID
+  --user-id ID                    Override user ID
+
+Environment variables:
+  ADHED_URL, ADHED_API_KEY, ADHED_TEAM_ID, ADHED_USER_ID
+
+Config file: ~/.config/dev-dashboard/config.json
+USAGE
+}
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+load_config
+parse_global_flags "$@"
+set -- "${REMAINING_ARGS[@]+"${REMAINING_ARGS[@]}"}"
+
+cmd="${1:-}"
+shift || true
+
+case "$cmd" in
+  health)        cmd_health "$@" ;;
+  issues)        cmd_issues "$@" ;;
+  projects)      cmd_projects "$@" ;;
+  labels)        cmd_labels "$@" ;;
+  states)        cmd_states "$@" ;;
+  rules)         cmd_rules "$@" ;;
+  comments)      cmd_comments "$@" ;;
+  audit)         cmd_audit "$@" ;;
+  notifications) cmd_notifications "$@" ;;
+  fragments)     cmd_fragments "$@" ;;
+  users)         cmd_users "$@" ;;
+  teams)         cmd_teams "$@" ;;
+  summary)       cmd_summary "$@" ;;
+  --help|-h|help) usage ;;
+  --version|-v)  echo "adhed $VERSION" ;;
+  "")            usage ;;
+  *) die "Unknown command: $cmd. Run 'adhed --help' for usage." ;;
+esac
