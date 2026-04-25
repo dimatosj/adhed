@@ -36,6 +36,7 @@ class Issue(Base):
     parent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("issues.id"))
     due_date: Mapped[date | None] = mapped_column(Date)
     custom_fields: Mapped[dict | None] = mapped_column(JSONB)
+    triage_context: Mapped[dict | None] = mapped_column(JSONB)
     created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(default=now_utc)
     updated_at: Mapped[datetime] = mapped_column(

@@ -167,6 +167,7 @@ async def _build_response(db: AsyncSession, issue: Issue) -> IssueResponse:
         parent_id=issue.parent_id,
         due_date=issue.due_date,
         custom_fields=issue.custom_fields,
+        triage_context=issue.triage_context,
         created_by=str(issue.created_by),
         created_at=issue.created_at,
         updated_at=issue.updated_at,
@@ -259,7 +260,8 @@ async def update_issue(
 
     # Capture old values for diff before mutating
     TRACKED_FIELDS = ["title", "description", "priority", "estimate", "state_id",
-                      "assignee_id", "project_id", "due_date", "type", "custom_fields"]
+                      "assignee_id", "project_id", "due_date", "type", "custom_fields",
+                      "triage_context"]
     old_values = {f: getattr(issue, f) for f in TRACKED_FIELDS}
     # Normalise UUIDs to strings so compute_diff can compare them
     old_values_str = {
@@ -610,6 +612,7 @@ async def _create_issue_impl(
         parent_id=data.parent_id,
         due_date=data.due_date,
         custom_fields=data.custom_fields,
+        triage_context=data.triage_context,
         created_by=user_id,
     )
     db.add(issue)

@@ -53,3 +53,15 @@ class FragmentType(str, enum.Enum):
 class ScheduleType(str, enum.Enum):
     CRON = "cron"
     INTERVAL = "interval"
+
+
+class SessionType(str, enum.Enum):
+    BRAINDUMP = "braindump"
+    READINESS_PREP = "readiness_prep"
+    SCHEDULING = "scheduling"
+
+
+class SessionState(str, enum.Enum):
+    ACTIVE = "active"
+    COMPLETED = "completed"
+    ABANDONED = "abandoned"
