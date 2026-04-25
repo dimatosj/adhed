@@ -22,6 +22,8 @@ def _to_response(frag: Fragment) -> FragmentResponse:
         text=frag.text,
         type=frag.type,
         summary=frag.summary,
+        subtype=frag.subtype,
+        source_url=frag.source_url,
         topics=frag.topics,
         domains=frag.domains,
         entities=frag.entities,
@@ -40,6 +42,8 @@ async def create_fragment(
         text=data.text,
         type=data.type,
         summary=data.summary,
+        subtype=data.subtype,
+        source_url=data.source_url,
         topics=data.topics,
         domains=data.domains,
         entities=data.entities,
@@ -102,6 +106,7 @@ async def list_fragments(
     db: AsyncSession,
     team_id: uuid.UUID,
     fragment_type: list[str] | None = None,
+    subtype: list[str] | None = None,
     domain: list[str] | None = None,
     topic: str | None = None,
     project_id: str | None = None,
@@ -118,6 +123,9 @@ async def list_fragments(
 
     if fragment_type:
         query = query.where(Fragment.type.in_(fragment_type))
+
+    if subtype:
+        query = query.where(Fragment.subtype.in_(subtype))
 
     if domain:
         for d in domain:

@@ -39,6 +39,7 @@ async def list_fragments(
     team: Team = Depends(verified_team),
     db: AsyncSession = Depends(get_db),
     type: str | None = Query(None),
+    subtype: str | None = Query(None),
     domain: str | None = Query(None),
     topic: str | None = Query(None),
     project_id: str | None = Query(None),
@@ -54,6 +55,7 @@ async def list_fragments(
     fragments, total = await fragment_service.list_fragments(
         db, team_id,
         fragment_type=type.split(",") if type else None,
+        subtype=subtype.split(",") if subtype else None,
         domain=domain.split(",") if domain else None,
         topic=topic,
         project_id=project_id,

@@ -18,6 +18,8 @@ class FragmentCreate(BaseModel):
     text: str
     type: FragmentType
     summary: str | None = None
+    subtype: str | None = None
+    source_url: str | None = None
     topics: list[str] | None = Field(default=None, max_length=3)
     domains: list[str] | None = None
     entities: list[dict] | None = None
@@ -28,6 +30,8 @@ class FragmentUpdate(BaseModel):
     text: str | None = None
     type: FragmentType | None = None
     summary: str | None = None
+    subtype: str | None = None
+    source_url: str | None = None
     topics: list[str] | None = Field(default=None, max_length=3)
     domains: list[str] | None = None
     entities: list[dict] | None = None
@@ -40,6 +44,8 @@ class FragmentResponse(BaseModel):
     text: str
     type: FragmentType
     summary: str | None
+    subtype: str | None
+    source_url: str | None
     topics: list[str] | None
     domains: list[str] | None
     entities: list[dict] | None
