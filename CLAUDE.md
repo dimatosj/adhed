@@ -1,5 +1,71 @@
 # ADHED — headless task management for agents and claws
 
+## Platform Integration
+
+### Agent Registry
+
+You are part of a multi-agent system. On session start you are auto-registered.
+
+- `agent-registry list` — see all active agents
+- `agent-registry message <name> <text>` — message another agent
+- `agent-registry find <name>` — get an agent's pane info
+- `agent-registry handoff "notes"` — capture snapshot + write handoff before ending session
+
+When ending a session, always run `agent-registry handoff "summary of what you did"` before `/exit`.
+
+### ADHED (Issue Tracking)
+
+Your canonical ADHED project name is **`adhed`**. When asked about "the backlog", "issues", or "what's on my plate", always scope to your project — not the global list.
+
+Active issues for your project are injected into your session context on startup via `<adhed-issues>` tags.
+
+- `adhed issues list --project adhed` — see **your** backlog
+- `adhed issues create --project adhed --title "..." --priority N` — create an issue
+- `adhed issues update <id> --state completed` — close an issue
+
+When you discover bugs or TODOs, create ADHED issues rather than leaving inline comments.
+
+**Cross-project issues:** If you create an issue for a different project, notify that project's agent:
+```bash
+adhed issues create --project other-project --title "..." --priority N
+agent-registry message other-agent "Created ADHED issue for you: <title>"
+```
+
+### Superpowers
+
+You have the Superpowers plugin installed. **You must use it for any brainstorming or implementation task.** Before planning or building anything, invoke the relevant skill:
+
+- `brainstorming` — before any design or planning work
+- `writing-plans` — when creating implementation plans
+- `executing-plans` — when implementing from a plan
+- `systematic-debugging` — when investigating bugs
+- `test-driven-development` — when writing tests
+
+If you think there's even a small chance a skill applies, invoke it first.
+
+### Ops Requests
+
+For infrastructure needs (DB changes, deploy issues, DNS, secrets), message devops:
+
+```bash
+agent-registry message devops "Need help with ..."
+```
+
+### Auto-Memory
+
+You have persistent memory files in `.claude/projects/*/memory/`. Use them to save:
+
+- Solutions to problems you solved (so you don't repeat mistakes)
+- Key architectural decisions and their rationale
+- Project-specific gotchas and workarounds
+- Patterns confirmed across multiple sessions
+
+This is how you maintain continuity across session refreshes. If you learn something important, write it down.
+
+### Important Files
+
+- `.agent-identity` — identifies you to the agent registry. Do not delete.
+
 ## Setup (First Time)
 
 If `.adhed-credentials` does not exist, the user needs setup. Walk them through it:
