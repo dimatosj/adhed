@@ -51,6 +51,7 @@ class IssueCreate(BaseModel):
     parent_id: uuid.UUID | None = None
     due_date: date | None = None
     custom_fields: dict | None = None
+    triage_context: dict | None = None
     label_ids: list[uuid.UUID] | None = None
 
     _check_cf = field_validator("custom_fields")(_check_custom_fields)
@@ -67,6 +68,7 @@ class IssueUpdate(BaseModel):
     project_id: uuid.UUID | None = None
     due_date: date | None = None
     custom_fields: dict | None = None
+    triage_context: dict | None = None
 
     _check_cf = field_validator("custom_fields")(_check_custom_fields)
 
@@ -85,6 +87,7 @@ class IssueResponse(BaseModel):
     parent_id: uuid.UUID | None
     due_date: date | None
     custom_fields: dict | None
+    triage_context: dict | None
     created_by: str
     created_at: datetime
     updated_at: datetime

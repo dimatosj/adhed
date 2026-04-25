@@ -11,14 +11,16 @@ from taskstore.models.fragment import Fragment
 from taskstore.models.fragment_link import FragmentLink
 from taskstore.models.issue import Issue
 from taskstore.models.project import Project
+from taskstore.models.session import Session
 from taskstore.schemas.fragment_link import FragmentLinkResponse
 
-VALID_TARGET_TYPES = frozenset({"fragment", "issue", "project"})
+VALID_TARGET_TYPES = frozenset({"fragment", "issue", "project", "session"})
 
 TARGET_TABLE = {
     "fragment": Fragment,
     "issue": Issue,
     "project": Project,
+    "session": Session,
 }
 
 
@@ -53,10 +55,15 @@ def _hydrate_project(project: Project) -> tuple[str, dict]:
     return project.name, {"state": project.state.value if project.state else None}
 
 
+def _hydrate_session(session: Session) -> tuple[str, dict]:
+    return f"{session.type.value} session", {"state": session.state.value, "type": session.type.value}
+
+
 HYDRATORS = {
     "fragment": (Fragment, _hydrate_fragment),
     "issue": (Issue, _hydrate_issue),
     "project": (Project, _hydrate_project),
+    "session": (Session, _hydrate_session),
 }
 
 

@@ -48,3 +48,15 @@ class FragmentType(str, enum.Enum):
     IDEA = "idea"
     RESOURCE = "resource"
     JOURNAL = "journal"
+
+
+class SessionType(str, enum.Enum):
+    BRAINDUMP = "braindump"
+    READINESS_PREP = "readiness_prep"
+    SCHEDULING = "scheduling"
+
+
+class SessionState(str, enum.Enum):
+    ACTIVE = "active"
+    COMPLETED = "completed"
+    ABANDONED = "abandoned"
