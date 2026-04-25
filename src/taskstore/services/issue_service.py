@@ -3,7 +3,10 @@ import uuid
 from datetime import date
 
 from fastapi import HTTPException
-from sqlalchemy import and_, func, select
+import json as _json
+
+from sqlalchemy import and_, func, select, type_coerce
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
@@ -402,6 +405,7 @@ async def list_issues(
     title_search: str | None = None,
     estimate_lte: int | None = None,
     estimate_gte: int | None = None,
+    custom_field: str | None = None,
     archived: bool = False,
     limit: int = 50,
     offset: int = 0,
@@ -506,6 +510,15 @@ async def list_issues(
         filters.append(Issue.estimate <= estimate_lte)
     if estimate_gte is not None:
         filters.append(Issue.estimate >= estimate_gte)
+
+    # Custom fields filter (JSONB containment)
+    if custom_field:
+        for pair in custom_field.split(","):
+            key, _, value = pair.partition(":")
+            key = key.strip()
+            value = value.strip()
+            if key and value:
+                filters.append(Issue.custom_fields.op("@>")(type_coerce({key: value}, JSONB)))
 
     # Apply all filters
     if filters:
