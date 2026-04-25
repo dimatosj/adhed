@@ -13,6 +13,7 @@ from taskstore.models.enums import (  # noqa: F401
     TeamRole,
 )
 from taskstore.models.fragment import Fragment  # noqa: F401
+from taskstore.models.fragment_link import FragmentLink  # noqa: F401
 from taskstore.models.issue import Issue, IssueLabel  # noqa: F401
 from taskstore.models.label import Label  # noqa: F401
 from taskstore.models.notification import Notification  # noqa: F401
