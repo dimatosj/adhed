@@ -362,6 +362,38 @@ async def update_issue(
         await record_audit(db, issue.team_id, "issue", issue.id, AuditAction.UPDATE, user_id, diff)
 
     await db.commit()
+
+    # Completion rollup: when a child completes, check if all siblings are done
+    if new_state and new_state.type in (StateType.COMPLETED, StateType.CANCELED) and issue.parent_id:
+        siblings_result = await db.execute(
+            select(Issue).where(
+                Issue.parent_id == issue.parent_id,
+                Issue.id != issue.id,
+            )
+        )
+        siblings = list(siblings_result.scalars().all())
+
+        if siblings:
+            terminal_states_result = await db.execute(
+                select(WorkflowState.id).where(
+                    WorkflowState.team_id == issue.team_id,
+                    WorkflowState.type.in_([StateType.COMPLETED, StateType.CANCELED]),
+                )
+            )
+            terminal_ids = {row[0] for row in terminal_states_result.all()}
+
+            all_done = all(s.state_id in terminal_ids for s in siblings)
+            if all_done:
+                parent_result = await db.execute(
+                    select(Issue).where(Issue.id == issue.parent_id)
+                )
+                parent = parent_result.scalar_one_or_none()
+                if parent:
+                    ctx = parent.triage_context or {}
+                    ctx["children_all_done"] = True
+                    parent.triage_context = ctx
+                    await db.commit()
+
     await db.refresh(issue)
     return await _build_response(db, issue)
 
