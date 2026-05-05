@@ -219,6 +219,44 @@ async def test_create_subtask(client, setup):
 
 
 @pytest.mark.asyncio
+async def test_create_subtask_with_position(client, setup):
+    """Subtasks can be created with explicit position for ordering."""
+    headers = setup["headers"]
+    team_id = setup["team_id"]
+
+    # Create parent
+    parent_resp = await client.post(
+        f"/api/v1/teams/{team_id}/issues",
+        json={"title": "Parent task"},
+        headers=headers,
+    )
+    assert parent_resp.status_code == 201
+    parent_id = parent_resp.json()["data"]["id"]
+
+    # Create children with positions
+    for i, title in enumerate(["Step 1: Buy parts", "Step 2: Turn off water", "Step 3: Replace washer"], start=1):
+        resp = await client.post(
+            f"/api/v1/teams/{team_id}/issues",
+            json={"title": title, "parent_id": parent_id, "position": i},
+            headers=headers,
+        )
+        assert resp.status_code == 201
+        assert resp.json()["data"]["position"] == i
+
+    # List children — should be ordered by position
+    list_resp = await client.get(
+        f"/api/v1/teams/{team_id}/issues?parent_id={parent_id}&sort=position&order=asc",
+        headers=headers,
+    )
+    assert list_resp.status_code == 200
+    children = list_resp.json()["data"]
+    assert len(children) == 3
+    assert children[0]["title"] == "Step 1: Buy parts"
+    assert children[1]["title"] == "Step 2: Turn off water"
+    assert children[2]["title"] == "Step 3: Replace washer"
+
+
+@pytest.mark.asyncio
 async def test_delete_issue_with_active_children_fails(client, setup):
     headers = setup["headers"]
     team_id = setup["team_id"]

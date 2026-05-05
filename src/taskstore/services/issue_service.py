@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 # Columns allowed in `?sort=` query parameter. Shared with schemas
 # so OpenAPI docs stay consistent with runtime behaviour.
-ISSUE_SORT_COLUMNS = frozenset({"created_at", "updated_at", "priority", "due_date"})
+ISSUE_SORT_COLUMNS = frozenset({"created_at", "updated_at", "priority", "due_date", "position"})
 
 from taskstore.engine.audit import compute_diff, record_audit
 from taskstore.engine.transitions import is_valid_transition
@@ -165,6 +165,7 @@ async def _build_response(db: AsyncSession, issue: Issue) -> IssueResponse:
         assignee_id=issue.assignee_id,
         project_id=issue.project_id,
         parent_id=issue.parent_id,
+        position=issue.position,
         due_date=issue.due_date,
         custom_fields=issue.custom_fields,
         triage_context=issue.triage_context,
@@ -261,7 +262,7 @@ async def update_issue(
     # Capture old values for diff before mutating
     TRACKED_FIELDS = ["title", "description", "priority", "estimate", "state_id",
                       "assignee_id", "project_id", "due_date", "type", "custom_fields",
-                      "triage_context"]
+                      "triage_context", "position"]
     old_values = {f: getattr(issue, f) for f in TRACKED_FIELDS}
     # Normalise UUIDs to strings so compute_diff can compare them
     old_values_str = {
@@ -535,6 +536,10 @@ async def list_issues(
     else:
         query = query.order_by(col.desc())
 
+    # When filtering by parent_id, add secondary sort by position
+    if parent_id is not None and parent_id != "null":
+        query = query.order_by(Issue.position.asc().nullslast(), Issue.created_at.asc())
+
     # Pagination
     query = query.offset(offset).limit(limit)
 
@@ -610,6 +615,7 @@ async def _create_issue_impl(
         assignee_id=data.assignee_id,
         project_id=data.project_id,
         parent_id=data.parent_id,
+        position=data.position,
         due_date=data.due_date,
         custom_fields=data.custom_fields,
         triage_context=data.triage_context,
