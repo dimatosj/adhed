@@ -80,6 +80,8 @@ cd adhed
 
 Requires Docker + curl. Everything else is handled.
 
+Services started: API server, Postgres, and a scheduler for recurring tasks.
+
 ## What's in the box
 
 - **Issues** with subtasks, labels, projects, priorities, due
@@ -89,6 +91,11 @@ Requires Docker + curl. Everything else is handled.
 - **Fragments** — typed notes (person, place, credential, memory,
   idea, resource, journal) with topics, domains, entities, and
   full-text search. Structured context for agents, not just tasks.
+- **Fragment links** — connect fragments to issues, projects, or
+  other entities with typed relationships
+- **Recurring tasks** — cron or interval schedules that
+  automatically spawn issues into backlog. Title templates with
+  `{date}` substitution, configurable issue defaults, pause/resume.
 - **Rules engine** — trigger → condition → action, evaluated
   server-side on every write. Reject, auto-label, set fields,
   notify, add comments.
@@ -133,6 +140,7 @@ See [Rules Engine](docs/rules-engine.md) for the full DSL.
   and transitions
 - [Rules Engine](docs/rules-engine.md) — conditions, actions, examples
 - [Fragments](docs/fragments.md) — typed notes for agent context
+- [Recurrences](docs/specs/2026-05-06-recurrences-design.md) — recurring task schedules
 - [Integration Guide](docs/integration-guide.md) — building clients
 - [Architecture](docs/architecture.md) — the three-layer design
 - [Deployment](docs/deployment.md) — running beyond localhost
