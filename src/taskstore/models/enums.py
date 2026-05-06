@@ -48,3 +48,8 @@ class FragmentType(str, enum.Enum):
     IDEA = "idea"
     RESOURCE = "resource"
     JOURNAL = "journal"
+
+
+class ScheduleType(str, enum.Enum):
+    CRON = "cron"
+    INTERVAL = "interval"

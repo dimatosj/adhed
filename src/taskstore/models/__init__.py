@@ -9,6 +9,7 @@ from taskstore.models.enums import (  # noqa: F401
     IssueType,
     ProjectState,
     RuleTrigger,
+    ScheduleType,
     StateType,
     TeamRole,
 )
@@ -18,6 +19,7 @@ from taskstore.models.issue import Issue, IssueLabel  # noqa: F401
 from taskstore.models.label import Label  # noqa: F401
 from taskstore.models.notification import Notification  # noqa: F401
 from taskstore.models.project import Project  # noqa: F401
+from taskstore.models.recurrence import Recurrence  # noqa: F401
 from taskstore.models.rule import Rule  # noqa: F401
 from taskstore.models.team import Team  # noqa: F401
 from taskstore.models.user import TeamMembership, User  # noqa: F401

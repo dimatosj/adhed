@@ -12,6 +12,7 @@ dependencies = [
     "pydantic>=2.10.0",
     "pydantic[email]>=2.10.0",  # EmailStr needs email-validator
     "pydantic-settings>=2.6.0",
+    "croniter>=6.0.0",
 ]
 
 [project.optional-dependencies]

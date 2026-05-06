@@ -28,6 +28,7 @@ from taskstore.api.issues import router as issues_router
 from taskstore.api.labels import router as labels_router
 from taskstore.api.notifications import router as notifications_router
 from taskstore.api.projects import router as projects_router
+from taskstore.api.recurrences import router as recurrences_router
 from taskstore.api.rules import router as rules_router
 from taskstore.api.setup import router as setup_router
 from taskstore.api.states import router as states_router
@@ -68,3 +69,4 @@ app.include_router(notifications_router)
 app.include_router(summary_router)
 app.include_router(fragments_router)
 app.include_router(fragment_links_router)
+app.include_router(recurrences_router)

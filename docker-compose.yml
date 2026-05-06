@@ -13,6 +13,17 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  adhed-scheduler:
+    build: .
+    command: python -m taskstore.scheduler
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://adhed:adhed@adhed-db:5432/adhed
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    depends_on:
+      adhed-db:
+        condition: service_healthy
+    restart: unless-stopped
+
   adhed-db:
     image: postgres:16
     volumes:
