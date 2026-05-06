@@ -39,7 +39,7 @@ async def test_scheduler_spawns_due_issue(client, setup):
             "schedule_type": "interval",
             "schedule_expr": "90d",
             "next_due_at": past.isoformat(),
-            "issue_defaults": {"priority": 2, "custom_fields": {"readiness": "ready"}},
+            "issue_defaults": {"priority": 2, "custom_fields": {"category": "maintenance"}},
         },
         headers=setup["headers"],
     )
@@ -58,7 +58,7 @@ async def test_scheduler_spawns_due_issue(client, setup):
     assert len(issues) == 1
     assert past.strftime("%Y-%m-%d") in issues[0]["title"]
     assert issues[0]["priority"] == 2
-    assert issues[0]["custom_fields"]["readiness"] == "ready"
+    assert issues[0]["custom_fields"]["category"] == "maintenance"
 
     # Verify recurrence was updated
     rec_resp = await client.get(f"/api/v1/recurrences/{rec_id}", headers=setup["headers"])

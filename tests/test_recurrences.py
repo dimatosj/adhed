@@ -112,7 +112,7 @@ async def test_create_interval_recurrence(client, setup):
             "title_template": "Change air filters",
             "schedule_type": "interval",
             "schedule_expr": "90d",
-            "issue_defaults": {"priority": 2, "custom_fields": {"readiness": "ready"}},
+            "issue_defaults": {"priority": 2, "custom_fields": {"category": "maintenance"}},
         },
         headers=setup["headers"],
     )

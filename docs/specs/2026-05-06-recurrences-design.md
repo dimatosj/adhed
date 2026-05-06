@@ -16,7 +16,7 @@ Add recurring task support to ADHED. A recurrence is a rule that spawns a new is
 - Pause/resume via active flag
 
 ### Out of scope
-- Readiness/triage workflow (Ziggy handles this via custom_fields.readiness)
+- Workflow-specific interpretation of spawned issues (consumers define their own custom_fields semantics)
 - Timezone-aware scheduling (UTC only for v1)
 - Catch-up spawning for missed runs (if scheduler was down, only spawn the next due instance, not all missed ones)
 
@@ -57,7 +57,7 @@ Request:
   "description_template": "Check and replace HVAC filters",
   "issue_defaults": {
     "priority": 2,
-    "custom_fields": {"readiness": "ready"}
+    "custom_fields": {"category": "maintenance"}
   },
   "schedule_type": "interval",
   "schedule_expr": "90d",
