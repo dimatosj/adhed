@@ -219,6 +219,44 @@ async def test_create_subtask(client, setup):
 
 
 @pytest.mark.asyncio
+async def test_create_subtask_with_position(client, setup):
+    """Subtasks can be created with explicit position for ordering."""
+    headers = setup["headers"]
+    team_id = setup["team_id"]
+
+    # Create parent
+    parent_resp = await client.post(
+        f"/api/v1/teams/{team_id}/issues",
+        json={"title": "Parent task"},
+        headers=headers,
+    )
+    assert parent_resp.status_code == 201
+    parent_id = parent_resp.json()["data"]["id"]
+
+    # Create children with positions
+    for i, title in enumerate(["Step 1: Buy parts", "Step 2: Turn off water", "Step 3: Replace washer"], start=1):
+        resp = await client.post(
+            f"/api/v1/teams/{team_id}/issues",
+            json={"title": title, "parent_id": parent_id, "position": i},
+            headers=headers,
+        )
+        assert resp.status_code == 201
+        assert resp.json()["data"]["position"] == i
+
+    # List children — should be ordered by position
+    list_resp = await client.get(
+        f"/api/v1/teams/{team_id}/issues?parent_id={parent_id}&sort=position&order=asc",
+        headers=headers,
+    )
+    assert list_resp.status_code == 200
+    children = list_resp.json()["data"]
+    assert len(children) == 3
+    assert children[0]["title"] == "Step 1: Buy parts"
+    assert children[1]["title"] == "Step 2: Turn off water"
+    assert children[2]["title"] == "Step 3: Replace washer"
+
+
+@pytest.mark.asyncio
 async def test_delete_issue_with_active_children_fails(client, setup):
     headers = setup["headers"]
     team_id = setup["team_id"]
@@ -246,3 +284,59 @@ async def test_delete_issue_with_active_children_fails(client, setup):
         headers=headers,
     )
     assert del_resp.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_completion_rollup_flags_parent(client, setup):
+    """When all children complete, parent gets children_all_done flag in triage_context."""
+    headers = setup["headers"]
+    team_id = setup["team_id"]
+    states = setup["states"]
+
+    # Create parent
+    parent_resp = await client.post(
+        f"/api/v1/teams/{team_id}/issues",
+        json={"title": "Fix the faucet"},
+        headers=headers,
+    )
+    assert parent_resp.status_code == 201
+    parent_id = parent_resp.json()["data"]["id"]
+
+    # Create two children
+    child_ids = []
+    for title in ["Buy washer", "Replace washer"]:
+        resp = await client.post(
+            f"/api/v1/teams/{team_id}/issues",
+            json={"title": title, "parent_id": parent_id, "position": len(child_ids) + 1},
+            headers=headers,
+        )
+        assert resp.status_code == 201
+        child_ids.append(resp.json()["data"]["id"])
+
+    completed_state_id = states["completed"]["id"]
+
+    # Complete first child — parent should NOT be flagged yet
+    await client.patch(
+        f"/api/v1/issues/{child_ids[0]}",
+        json={"state_id": completed_state_id},
+        headers=headers,
+    )
+    parent_resp = await client.get(
+        f"/api/v1/issues/{parent_id}",
+        headers=headers,
+    )
+    parent_data = parent_resp.json()["data"]
+    assert parent_data.get("triage_context") is None or not parent_data.get("triage_context", {}).get("children_all_done")
+
+    # Complete second child — parent SHOULD be flagged
+    await client.patch(
+        f"/api/v1/issues/{child_ids[1]}",
+        json={"state_id": completed_state_id},
+        headers=headers,
+    )
+    parent_resp = await client.get(
+        f"/api/v1/issues/{parent_id}",
+        headers=headers,
+    )
+    parent_data = parent_resp.json()["data"]
+    assert parent_data["triage_context"]["children_all_done"] is True
