@@ -1,0 +1,26 @@
+{
+  "timestamp": "2026-04-23T15:27:58Z",
+  "session_id": "",
+  "agent": {
+    "name": "adhed-eng",
+    "project": "adhed",
+    "role": "em"
+  },
+  "git": {
+    "branch": "main",
+    "commit": "690ca6c",
+    "staged": 0,
+    "modified": 0,
+    "untracked": 2,
+    "recent_commits": [
+      "690ca6c chore: bump version to 0.2.0",
+      "3c0b0a9 feat: add fragment commands to life-cli.py",
+      "fb5179d fix: sync CLI \u2014 require_config() set -e fix",
+      "d480350 Merge pull request #8 from dimatosj/feat/dev-dashboard-integration",
+      "b8463c2 fix: unwrap response envelope and correct query params in dev-dashboard CLI"
+    ],
+    "diff_stat": ""
+  },
+  "active_issues": [],
+  "project_dir": "/Users/jsd/projects/adhed"
+}

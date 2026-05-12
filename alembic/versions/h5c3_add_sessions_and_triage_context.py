@@ -1,7 +1,7 @@
 """add sessions table and triage_context to issues
 
 Revision ID: h5c3
-Revises: g4b2
+Revises: i6d4
 Create Date: 2026-04-25
 
 """
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 revision: str = 'h5c3'
-down_revision: Union[str, Sequence[str], None] = 'g4b2'
+down_revision: Union[str, Sequence[str], None] = 'i6d4'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

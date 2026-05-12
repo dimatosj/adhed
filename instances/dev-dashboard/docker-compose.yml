@@ -1,0 +1,34 @@
+services:
+  adhed-api:
+    build: ../..
+    ports:
+      - "8300:8300"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://adhed:adhed@adhed-db:5432/adhed
+      - DATABASE_URL_SYNC=postgresql://adhed:adhed@adhed-db:5432/adhed
+      - API_PORT=8300
+      - LOG_LEVEL=info
+    depends_on:
+      adhed-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  adhed-db:
+    image: postgres:16
+    volumes:
+      - devdash-adhed-pgdata:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=adhed
+      - POSTGRES_PASSWORD=adhed
+      - POSTGRES_DB=adhed
+    ports:
+      - "127.0.0.1:5436:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "adhed"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  devdash-adhed-pgdata:
