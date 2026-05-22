@@ -57,10 +57,11 @@ class ScheduleType(str, enum.Enum):
 
 
 class SessionType(str, enum.Enum):
-    BRAINDUMP = "braindump"
     PREP = "prep"
-    READINESS_PREP = "readiness_prep"
-    SCHEDULING = "scheduling"
+    ENRICH = "enrich"
+    BREAKDOWN = "breakdown"
+    INTAKE_SCAN = "intake_scan"
+    DAILY_PREP = "daily_prep"
 
 
 class SessionState(str, enum.Enum):

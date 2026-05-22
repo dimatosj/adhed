@@ -56,7 +56,9 @@ def _hydrate_project(project: Project) -> tuple[str, dict]:
 
 
 def _hydrate_session(session: Session) -> tuple[str, dict]:
-    return f"{session.type.value} session", {"state": session.state.value, "type": session.type.value}
+    stype = session.type.value if hasattr(session.type, 'value') else session.type
+    sstate = session.state.value if hasattr(session.state, 'value') else session.state
+    return f"{stype} session", {"state": sstate, "type": stype}
 
 
 HYDRATORS = {

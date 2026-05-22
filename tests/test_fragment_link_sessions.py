@@ -25,7 +25,7 @@ async def test_link_fragment_to_session(client, setup):
 
     session_resp = await client.post(
         f"/api/v1/teams/{setup['team_id']}/sessions",
-        json={"type": "braindump", "payload": {"items": []}},
+        json={"type": "enrich", "payload": {"items": []}},
         headers=setup["headers"],
     )
     assert session_resp.status_code == 201
@@ -40,8 +40,8 @@ async def test_link_fragment_to_session(client, setup):
     link = link_resp.json()["data"]
     assert link["target_type"] == "session"
     assert link["target_id"] == session_id
-    assert link["summary"] == "braindump session"
-    assert link["detail"]["type"] == "braindump"
+    assert link["summary"] == "enrich session"
+    assert link["detail"]["type"] == "enrich"
     assert link["detail"]["state"] == "active"
 
 
@@ -73,7 +73,7 @@ async def test_get_links_includes_session(client, setup):
 
     session_resp = await client.post(
         f"/api/v1/teams/{setup['team_id']}/sessions",
-        json={"type": "readiness_prep"},
+        json={"type": "prep"},
         headers=setup["headers"],
     )
     session_id = session_resp.json()["data"]["id"]

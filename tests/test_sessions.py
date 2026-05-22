@@ -14,40 +14,62 @@ async def setup(client):
 
 
 @pytest.mark.asyncio
-async def test_create_braindump_session(client, setup):
+async def test_create_enrich_session(client, setup):
     resp = await client.post(
         f"/api/v1/teams/{setup['team_id']}/sessions",
-        json={"type": "braindump", "payload": {"items": []}},
+        json={"type": "enrich", "payload": {"items": []}},
         headers=setup["headers"],
     )
     assert resp.status_code == 201
     session = resp.json()["data"]
-    assert session["type"] == "braindump"
+    assert session["type"] == "enrich"
     assert session["state"] == "active"
     assert session["payload"] == {"items": []}
     assert session["completed_at"] is None
 
 
 @pytest.mark.asyncio
-async def test_create_readiness_prep_session(client, setup):
+async def test_create_prep_session(client, setup):
     resp = await client.post(
         f"/api/v1/teams/{setup['team_id']}/sessions",
-        json={"type": "readiness_prep"},
+        json={"type": "prep"},
         headers=setup["headers"],
     )
     assert resp.status_code == 201
-    assert resp.json()["data"]["type"] == "readiness_prep"
+    assert resp.json()["data"]["type"] == "prep"
 
 
 @pytest.mark.asyncio
-async def test_create_scheduling_session(client, setup):
+async def test_create_breakdown_session(client, setup):
     resp = await client.post(
         f"/api/v1/teams/{setup['team_id']}/sessions",
-        json={"type": "scheduling"},
+        json={"type": "breakdown"},
         headers=setup["headers"],
     )
     assert resp.status_code == 201
-    assert resp.json()["data"]["type"] == "scheduling"
+    assert resp.json()["data"]["type"] == "breakdown"
+
+
+@pytest.mark.asyncio
+async def test_create_intake_scan_session(client, setup):
+    resp = await client.post(
+        f"/api/v1/teams/{setup['team_id']}/sessions",
+        json={"type": "intake_scan"},
+        headers=setup["headers"],
+    )
+    assert resp.status_code == 201
+    assert resp.json()["data"]["type"] == "intake_scan"
+
+
+@pytest.mark.asyncio
+async def test_create_daily_prep_session(client, setup):
+    resp = await client.post(
+        f"/api/v1/teams/{setup['team_id']}/sessions",
+        json={"type": "daily_prep"},
+        headers=setup["headers"],
+    )
+    assert resp.status_code == 201
+    assert resp.json()["data"]["type"] == "daily_prep"
 
 
 @pytest.mark.asyncio
@@ -64,12 +86,12 @@ async def test_invalid_session_type_returns_422(client, setup):
 async def test_list_sessions(client, setup):
     await client.post(
         f"/api/v1/teams/{setup['team_id']}/sessions",
-        json={"type": "braindump"},
+        json={"type": "enrich"},
         headers=setup["headers"],
     )
     await client.post(
         f"/api/v1/teams/{setup['team_id']}/sessions",
-        json={"type": "readiness_prep"},
+        json={"type": "breakdown"},
         headers=setup["headers"],
     )
 
@@ -86,29 +108,29 @@ async def test_list_sessions(client, setup):
 async def test_list_sessions_filter_by_type(client, setup):
     await client.post(
         f"/api/v1/teams/{setup['team_id']}/sessions",
-        json={"type": "braindump"},
+        json={"type": "enrich"},
         headers=setup["headers"],
     )
     await client.post(
         f"/api/v1/teams/{setup['team_id']}/sessions",
-        json={"type": "readiness_prep"},
+        json={"type": "breakdown"},
         headers=setup["headers"],
     )
 
     resp = await client.get(
-        f"/api/v1/teams/{setup['team_id']}/sessions?type=braindump",
+        f"/api/v1/teams/{setup['team_id']}/sessions?type=enrich",
         headers=setup["headers"],
     )
     assert resp.status_code == 200
     assert resp.json()["meta"]["total"] == 1
-    assert resp.json()["data"][0]["type"] == "braindump"
+    assert resp.json()["data"][0]["type"] == "enrich"
 
 
 @pytest.mark.asyncio
 async def test_list_sessions_filter_by_state(client, setup):
     create_resp = await client.post(
         f"/api/v1/teams/{setup['team_id']}/sessions",
-        json={"type": "braindump"},
+        json={"type": "enrich"},
         headers=setup["headers"],
     )
     session_id = create_resp.json()["data"]["id"]
@@ -121,7 +143,7 @@ async def test_list_sessions_filter_by_state(client, setup):
 
     await client.post(
         f"/api/v1/teams/{setup['team_id']}/sessions",
-        json={"type": "braindump"},
+        json={"type": "enrich"},
         headers=setup["headers"],
     )
 
@@ -137,7 +159,7 @@ async def test_list_sessions_filter_by_state(client, setup):
 async def test_get_session(client, setup):
     create_resp = await client.post(
         f"/api/v1/teams/{setup['team_id']}/sessions",
-        json={"type": "braindump", "payload": {"items": ["wash car"]}},
+        json={"type": "enrich", "payload": {"items": ["wash car"]}},
         headers=setup["headers"],
     )
     session_id = create_resp.json()["data"]["id"]
@@ -164,7 +186,7 @@ async def test_get_nonexistent_session_returns_404(client, setup):
 async def test_update_session_payload(client, setup):
     create_resp = await client.post(
         f"/api/v1/teams/{setup['team_id']}/sessions",
-        json={"type": "braindump", "payload": {"items": []}},
+        json={"type": "enrich", "payload": {"items": []}},
         headers=setup["headers"],
     )
     session_id = create_resp.json()["data"]["id"]
@@ -183,7 +205,7 @@ async def test_update_session_payload(client, setup):
 async def test_complete_session_sets_completed_at(client, setup):
     create_resp = await client.post(
         f"/api/v1/teams/{setup['team_id']}/sessions",
-        json={"type": "braindump"},
+        json={"type": "enrich"},
         headers=setup["headers"],
     )
     session_id = create_resp.json()["data"]["id"]
@@ -203,7 +225,7 @@ async def test_complete_session_sets_completed_at(client, setup):
 async def test_abandon_session_sets_completed_at(client, setup):
     create_resp = await client.post(
         f"/api/v1/teams/{setup['team_id']}/sessions",
-        json={"type": "braindump"},
+        json={"type": "enrich"},
         headers=setup["headers"],
     )
     session_id = create_resp.json()["data"]["id"]
@@ -222,7 +244,7 @@ async def test_abandon_session_sets_completed_at(client, setup):
 async def test_session_audited(client, setup):
     await client.post(
         f"/api/v1/teams/{setup['team_id']}/sessions",
-        json={"type": "braindump"},
+        json={"type": "enrich"},
         headers=setup["headers"],
     )
 
