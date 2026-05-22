@@ -61,9 +61,6 @@ class SessionType(str, enum.Enum):
     PREP = "prep"
     READINESS_PREP = "readiness_prep"
     SCHEDULING = "scheduling"
-    ENRICH = "enrich"
-    BREAKDOWN = "breakdown"
-    INTAKE_SCAN = "intake_scan"
 
 
 class SessionState(str, enum.Enum):
