@@ -21,14 +21,16 @@ _TEMPLATE_RE = re.compile(r"\{(\w+)\}")
 # Anything not in this set would let a rule author escalate privileges
 # (e.g. team_id -> cross-tenant move, created_by -> audit forgery,
 # archived_at -> hide/unhide, id -> row corruption).
-SET_FIELD_ALLOWED = frozenset({
-    "priority",
-    "estimate",
-    "assignee_id",
-    "project_id",
-    "due_date",
-    "state_id",
-})
+SET_FIELD_ALLOWED = frozenset(
+    {
+        "priority",
+        "estimate",
+        "assignee_id",
+        "project_id",
+        "due_date",
+        "state_id",
+    }
+)
 
 
 def validate_actions(actions: list[dict]) -> None:
@@ -45,8 +47,7 @@ def validate_actions(actions: list[dict]) -> None:
         atype = action.get("type")
         if atype not in _ACTION_HANDLERS:
             raise ValueError(
-                f"action[{idx}] has unknown type: {atype!r}. "
-                f"Allowed: {sorted(_ACTION_HANDLERS)}"
+                f"action[{idx}] has unknown type: {atype!r}. Allowed: {sorted(_ACTION_HANDLERS)}"
             )
         if atype == "set_field":
             fname = action.get("field")
@@ -60,6 +61,7 @@ def validate_actions(actions: list[dict]) -> None:
 @dataclass
 class Effect:
     """A prepared effect ready to be applied."""
+
     type: str
     params: dict[str, Any] = field(default_factory=dict)
 

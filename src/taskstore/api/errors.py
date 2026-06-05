@@ -7,6 +7,7 @@ Clients can parse one shape for everything.
 This also keeps internal schema names and enum member paths out of
 error messages surfaced to clients (see taskstore/services/*).
 """
+
 from __future__ import annotations
 
 import logging
@@ -57,11 +58,13 @@ async def _validation_exception_handler(
 
 async def _rule_rejection_handler(request: Request, exc: RuleRejection) -> JSONResponse:
     return _envelope_response(
-        errors=[ErrorDetail(
-            rule_id=str(exc.rule_id),
-            rule_name=exc.rule_name,
-            message=exc.message,
-        )],
+        errors=[
+            ErrorDetail(
+                rule_id=str(exc.rule_id),
+                rule_name=exc.rule_name,
+                message=exc.message,
+            )
+        ],
         status=422,
     )
 
@@ -74,11 +77,13 @@ async def _rule_evaluation_error_handler(
         extra={"rule_id": str(exc.rule_id), "rule_name": exc.rule_name},
     )
     return _envelope_response(
-        errors=[ErrorDetail(
-            rule_id=str(exc.rule_id),
-            rule_name=exc.rule_name,
-            message=exc.message,
-        )],
+        errors=[
+            ErrorDetail(
+                rule_id=str(exc.rule_id),
+                rule_name=exc.rule_name,
+                message=exc.message,
+            )
+        ],
         status=422,
     )
 

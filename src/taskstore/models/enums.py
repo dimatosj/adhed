@@ -9,6 +9,7 @@ class StateType(str, enum.Enum):
     COMPLETED = "completed"
     CANCELED = "canceled"
 
+
 class ProjectState(str, enum.Enum):
     PLANNED = "planned"
     STARTED = "started"
@@ -16,20 +17,24 @@ class ProjectState(str, enum.Enum):
     COMPLETED = "completed"
     CANCELED = "canceled"
 
+
 class TeamRole(str, enum.Enum):
     OWNER = "owner"
     ADMIN = "admin"
     MEMBER = "member"
+
 
 class IssueType(str, enum.Enum):
     TASK = "task"
     REFERENCE = "reference"
     IDEA = "idea"
 
+
 class AuditAction(str, enum.Enum):
     CREATE = "create"
     UPDATE = "update"
     DELETE = "delete"
+
 
 class RuleTrigger(str, enum.Enum):
     ISSUE_CREATED = "issue.created"

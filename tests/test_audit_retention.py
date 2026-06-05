@@ -4,6 +4,7 @@ OWNER-only. Accepts ?before=<datetime> (required) and returns the
 count of deleted rows. Prevents unbounded audit-table growth over
 the lifetime of a team.
 """
+
 from datetime import timedelta
 
 import pytest
@@ -24,8 +25,11 @@ async def _bootstrap(client):
 async def test_delete_audit_before_requires_owner(client):
     team, owner_headers = await _bootstrap(client)
     member = await make_user(
-        client, team["id"], team["api_key"],
-        name="M", email="m@example.com",
+        client,
+        team["id"],
+        team["api_key"],
+        name="M",
+        email="m@example.com",
         as_user_id=team["_setup_user_id"],
     )
     member_headers = {"X-API-Key": team["api_key"], "X-User-Id": member["id"]}
@@ -67,6 +71,7 @@ async def test_delete_audit_removes_only_entries_before_cutoff(client):
 
     # Small delta so the second entry is strictly after the cutoff
     import asyncio
+
     await asyncio.sleep(0.05)
 
     second = await client.post(

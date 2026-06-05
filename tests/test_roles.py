@@ -15,6 +15,7 @@ Role matrix (reviewer-approved):
 | View audit (all users)            |  ✅   |  ✅   |  ❌    |
 | View audit (self only)            |  ✅   |  ✅   |  ✅    |
 """
+
 import uuid
 
 import pytest
@@ -35,13 +36,19 @@ async def _three_role_fixture(client):
     owner_id = team["_setup_user_id"]
 
     admin = await make_user(
-        client, team_id, api_key,
-        name="Admin", email="admin@example.com",
+        client,
+        team_id,
+        api_key,
+        name="Admin",
+        email="admin@example.com",
         as_user_id=owner_id,
     )
     member = await make_user(
-        client, team_id, api_key,
-        name="Member", email="member@example.com",
+        client,
+        team_id,
+        api_key,
+        name="Member",
+        email="member@example.com",
         as_user_id=owner_id,
     )
 

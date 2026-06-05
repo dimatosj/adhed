@@ -53,7 +53,8 @@ async def list_fragments(
     order: str = Query("desc"),
 ):
     fragments, total = await fragment_service.list_fragments(
-        db, team_id,
+        db,
+        team_id,
         fragment_type=type.split(",") if type else None,
         subtype=subtype.split(",") if subtype else None,
         domain=domain.split(",") if domain else None,
@@ -63,7 +64,10 @@ async def list_fragments(
         entity_name=entity_name,
         title_search=title_search,
         created_by=created_by,
-        limit=limit, offset=offset, sort=sort, order=order,
+        limit=limit,
+        offset=offset,
+        sort=sort,
+        order=order,
     )
     return Envelope(data=fragments, meta=Meta(total=total, limit=limit, offset=offset))
 

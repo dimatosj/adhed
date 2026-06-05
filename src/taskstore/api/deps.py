@@ -49,9 +49,7 @@ async def get_team(
     # time compare. Indexed lookup on a random 256-bit hash is already
     # not realistically timing-attackable, but compare_digest is free.
     submitted_hash = hash_api_key(x_api_key)
-    result = await db.execute(
-        select(Team).where(Team.api_key_hash == submitted_hash)
-    )
+    result = await db.execute(select(Team).where(Team.api_key_hash == submitted_hash))
     team = result.scalar_one_or_none()
     if team is None or not secrets.compare_digest(team.api_key_hash, submitted_hash):
         logger.warning(
@@ -97,9 +95,7 @@ async def verified_team(
     return team
 
 
-async def _caller_role(
-    team_id: uuid.UUID, user_id: uuid.UUID, db: AsyncSession
-) -> TeamRole | None:
+async def _caller_role(team_id: uuid.UUID, user_id: uuid.UUID, db: AsyncSession) -> TeamRole | None:
     result = await db.execute(
         select(TeamMembership.role).where(
             TeamMembership.team_id == team_id,

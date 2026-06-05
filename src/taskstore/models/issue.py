@@ -24,21 +24,31 @@ class Issue(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    team_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("teams.id"), nullable=False)
+    team_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("teams.id"), nullable=False
+    )
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     type: Mapped[IssueType] = mapped_column(default=IssueType.TASK)
     priority: Mapped[int] = mapped_column(Integer, default=0)
     estimate: Mapped[int | None] = mapped_column(Integer)
-    state_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("workflow_states.id"), nullable=False)
-    assignee_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
-    project_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id"))
+    state_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("workflow_states.id"), nullable=False
+    )
+    assignee_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id")
+    )
+    project_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("projects.id")
+    )
     parent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("issues.id"))
     position: Mapped[int | None] = mapped_column(Integer)
     due_date: Mapped[date | None] = mapped_column(Date)
     custom_fields: Mapped[dict | None] = mapped_column(JSONB)
     triage_context: Mapped[dict | None] = mapped_column(JSONB)
-    created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(default=now_utc)
     updated_at: Mapped[datetime] = mapped_column(
         default=now_utc,
@@ -47,12 +57,19 @@ class Issue(Base):
     archived_at: Mapped[datetime | None] = mapped_column()
     title_search: Mapped[str | None] = mapped_column(
         TSVECTOR,
-        Computed("to_tsvector('english', coalesce(title, '') || ' ' || coalesce(description, ''))", persisted=True),
+        Computed(
+            "to_tsvector('english', coalesce(title, '') || ' ' || coalesce(description, ''))",
+            persisted=True,
+        ),
     )
 
 
 class IssueLabel(Base):
     __tablename__ = "issue_labels"
 
-    issue_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("issues.id", ondelete="CASCADE"), primary_key=True)
-    label_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("labels.id", ondelete="CASCADE"), primary_key=True)
+    issue_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("issues.id", ondelete="CASCADE"), primary_key=True
+    )
+    label_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("labels.id", ondelete="CASCADE"), primary_key=True
+    )

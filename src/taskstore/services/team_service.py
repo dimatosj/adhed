@@ -43,11 +43,13 @@ async def create_team(
         raise HTTPException(status_code=409, detail=f"Team key '{data.key}' already exists")
     await seed_default_states(db, team.id)
     if creator_user_id is not None:
-        db.add(TeamMembership(
-            team_id=team.id,
-            user_id=creator_user_id,
-            role=TeamRole.OWNER,
-        ))
+        db.add(
+            TeamMembership(
+                team_id=team.id,
+                user_id=creator_user_id,
+                role=TeamRole.OWNER,
+            )
+        )
     await db.commit()
     await db.refresh(team)
     return team, plaintext_key
@@ -74,9 +76,7 @@ async def rotate_api_key(
     team = await get_team(db, team_id)
     new_plaintext = f"adhed_{secrets.token_hex(32)}"
     team.api_key_hash = hash_api_key(new_plaintext)
-    await record_audit(
-        db, team.id, "team_api_key", team.id, AuditAction.UPDATE, user_id
-    )
+    await record_audit(db, team.id, "team_api_key", team.id, AuditAction.UPDATE, user_id)
     await db.commit()
     await db.refresh(team)
     return team, new_plaintext
@@ -94,9 +94,7 @@ async def update_team(
     if data.settings is not None:
         team.settings = data.settings.model_dump()
     if user_id is not None:
-        await record_audit(
-            db, team.id, "team", team.id, AuditAction.UPDATE, user_id
-        )
+        await record_audit(db, team.id, "team", team.id, AuditAction.UPDATE, user_id)
     await db.commit()
     await db.refresh(team)
     return team

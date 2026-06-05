@@ -8,6 +8,7 @@ columns. When the schema is migrated to `TIMESTAMP WITH TIME ZONE`
 (planned follow-up), drop the `.replace(tzinfo=None)` here and let
 the tz-aware value flow through.
 """
+
 from datetime import UTC, datetime
 
 

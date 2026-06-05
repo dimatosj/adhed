@@ -81,8 +81,7 @@ async def update_rule(
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
 
-    tracked = ["name", "description", "enabled", "priority", "trigger",
-               "conditions", "actions"]
+    tracked = ["name", "description", "enabled", "priority", "trigger", "conditions", "actions"]
     old_values = {f: getattr(rule, f) for f in tracked}
 
     for field, value in update_data.items():
@@ -95,9 +94,7 @@ async def update_rule(
             {k: str(v) for k, v in new_values.items()},
             tracked,
         )
-        await record_audit(
-            db, rule.team_id, "rule", rule.id, AuditAction.UPDATE, user_id, diff
-        )
+        await record_audit(db, rule.team_id, "rule", rule.id, AuditAction.UPDATE, user_id, diff)
     await db.commit()
     await db.refresh(rule)
     return rule
@@ -109,8 +106,6 @@ async def delete_rule(
     rule = await get_rule(db, rule_id)
     team_id = rule.team_id
     if user_id is not None:
-        await record_audit(
-            db, team_id, "rule", rule.id, AuditAction.DELETE, user_id
-        )
+        await record_audit(db, team_id, "rule", rule.id, AuditAction.DELETE, user_id)
     await db.delete(rule)
     await db.commit()

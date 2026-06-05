@@ -7,6 +7,7 @@ Clients can parse one shape for everything.
 Error details do not leak internal enum member paths (e.g.
 `StateType.TRIAGE`) or internal schema names to the client.
 """
+
 import pytest
 
 from tests.conftest import make_team
@@ -47,9 +48,7 @@ async def test_403_forbidden_is_envelope(client):
     assert resp.status_code == 403
     body = resp.json()
     assert body["data"] is None
-    assert body["errors"][0]["message"].lower() in (
-        "forbidden", "insufficient role"
-    )
+    assert body["errors"][0]["message"].lower() in ("forbidden", "insufficient role")
 
 
 @pytest.mark.asyncio
@@ -132,9 +131,7 @@ async def test_state_transition_error_does_not_leak_enum(client):
     body = patch.json()
     msg = body["errors"][0]["message"]
     # Clean user-facing message — no Python enum repr
-    assert "StateType." not in msg, (
-        f"Error message leaks Python enum path: {msg!r}"
-    )
+    assert "StateType." not in msg, f"Error message leaks Python enum path: {msg!r}"
 
 
 @pytest.mark.asyncio

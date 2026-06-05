@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from croniter import croniter
 from dateutil.relativedelta import relativedelta
 from fastapi import HTTPException
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from taskstore.engine.audit import record_audit

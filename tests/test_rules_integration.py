@@ -344,10 +344,13 @@ async def test_count_query_excludes_archived_issues(client, rules_setup):
     # Archive one of the started issues by setting archived_at directly.
     # (No archive endpoint yet — direct DB write simulates an archiver job.)
     from taskstore.utils.time import now_utc
+
     async with TestSessionLocal() as session:
         await session.execute(
             sa_update(Issue)
-            .where(Issue.team_id == uuid.UUID(team_id), Issue.state_id == uuid.UUID(started_state_id))
+            .where(
+                Issue.team_id == uuid.UUID(team_id), Issue.state_id == uuid.UUID(started_state_id)
+            )
             .values(archived_at=now_utc())
             .execution_options(synchronize_session=False)
         )
@@ -372,8 +375,7 @@ async def test_set_field_allows_whitelisted_fields_at_create(client, rules_setup
     api_headers = {"X-API-Key": s["api_key"], "X-User-Id": s["user_id"]}
     team_id = s["team_id"]
 
-    for field in ("priority", "estimate", "assignee_id", "project_id",
-                  "due_date", "state_id"):
+    for field in ("priority", "estimate", "assignee_id", "project_id", "due_date", "state_id"):
         resp = await client.post(
             f"/api/v1/teams/{team_id}/rules",
             headers=api_headers,
@@ -385,6 +387,5 @@ async def test_set_field_allows_whitelisted_fields_at_create(client, rules_setup
             },
         )
         assert resp.status_code == 201, (
-            f"Whitelisted field {field!r} should be accepted, "
-            f"got {resp.status_code}: {resp.text}"
+            f"Whitelisted field {field!r} should be accepted, got {resp.status_code}: {resp.text}"
         )

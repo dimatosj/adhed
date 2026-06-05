@@ -18,8 +18,7 @@ def _check_custom_fields(value: dict | None) -> dict | None:
     size = len(json.dumps(value, default=str))
     if size > _MAX_CUSTOM_FIELDS_BYTES:
         raise ValueError(
-            f"custom_fields exceeds {_MAX_CUSTOM_FIELDS_BYTES} byte limit "
-            f"(got {size} bytes)"
+            f"custom_fields exceeds {_MAX_CUSTOM_FIELDS_BYTES} byte limit (got {size} bytes)"
         )
     return value
 

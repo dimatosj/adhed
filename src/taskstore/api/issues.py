@@ -65,7 +65,9 @@ async def list_issues_endpoint(
     title_search: str | None = Query(None),
     estimate_lte: int | None = Query(None),
     estimate_gte: int | None = Query(None),
-    custom_field: str | None = Query(None, description="Filter by custom_fields key:value pairs, comma-separated"),
+    custom_field: str | None = Query(
+        None, description="Filter by custom_fields key:value pairs, comma-separated"
+    ),
     archived: bool = Query(False),
     limit: int = Query(50),
     offset: int = Query(0),
@@ -180,9 +182,7 @@ async def batch_update_issues_endpoint(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    results = await batch_update_issues(
-        db, team_id, body.filter, body.update, user_id=user.id
-    )
+    results = await batch_update_issues(db, team_id, body.filter, body.update, user_id=user.id)
     return Envelope(data=results)
 
 

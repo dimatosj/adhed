@@ -30,5 +30,5 @@ class RuleContext:
         if value == "$current_user":
             return self.current_user
         if value.startswith("$current."):
-            return self.issue.get(value[len("$current."):])
+            return self.issue.get(value[len("$current.") :])
         return value

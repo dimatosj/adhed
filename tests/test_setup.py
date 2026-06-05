@@ -74,8 +74,19 @@ async def test_setup_seeds_default_labels_when_opted_in(client):
     assert len(labels) == 14
     label_names = {lb["name"] for lb in labels}
     expected = {
-        "health", "home", "personal", "family", "work", "finances", "social",
-        "@home", "@errands", "@computer", "@phone", "someday-maybe", "waiting-for",
+        "health",
+        "home",
+        "personal",
+        "family",
+        "work",
+        "finances",
+        "social",
+        "@home",
+        "@errands",
+        "@computer",
+        "@phone",
+        "someday-maybe",
+        "waiting-for",
         "commitment",
     }
     assert label_names == expected

@@ -4,6 +4,7 @@ mutation" — this is the contract we hold to.
 
 Covers: rule, label, project, team, membership.
 """
+
 import pytest
 
 from tests.conftest import make_team

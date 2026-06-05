@@ -7,6 +7,7 @@ looking like the same user to humans. This PR:
 - Lowercases at write time so the unique constraint works as
   expected.
 """
+
 import pytest
 
 from tests.conftest import make_team

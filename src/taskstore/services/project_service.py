@@ -59,9 +59,7 @@ async def create_project(
     db.add(project)
     await db.flush()
     if user_id is not None:
-        await record_audit(
-            db, team_id, "project", project.id, AuditAction.CREATE, user_id
-        )
+        await record_audit(db, team_id, "project", project.id, AuditAction.CREATE, user_id)
     await db.commit()
     await db.refresh(project)
     return await _build_response(db, project)
@@ -112,9 +110,7 @@ async def update_project(
     for field, value in update_data.items():
         setattr(project, field, value)
     if user_id is not None:
-        await record_audit(
-            db, project.team_id, "project", project.id, AuditAction.UPDATE, user_id
-        )
+        await record_audit(db, project.team_id, "project", project.id, AuditAction.UPDATE, user_id)
     await db.commit()
     await db.refresh(project)
     return await _build_response(db, project, include_counts=True)
@@ -137,8 +133,6 @@ async def delete_project(
         )
 
     if user_id is not None:
-        await record_audit(
-            db, project.team_id, "project", project.id, AuditAction.DELETE, user_id
-        )
+        await record_audit(db, project.team_id, "project", project.id, AuditAction.DELETE, user_id)
     await db.delete(project)
     await db.commit()

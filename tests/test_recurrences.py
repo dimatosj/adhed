@@ -1,17 +1,17 @@
-import pytest
-from datetime import datetime, timezone, timedelta
-from unittest.mock import patch
+from datetime import UTC, datetime, timedelta
 
+import pytest
+
+from taskstore.models.enums import ScheduleType
 from taskstore.services.recurrence_service import (
-    parse_interval,
     compute_next_due,
+    parse_interval,
     render_title,
     validate_schedule,
 )
-from taskstore.models.enums import ScheduleType
-
 
 # --- Unit tests for schedule parsing ---
+
 
 def test_parse_interval_days():
     delta = parse_interval("90d")
@@ -25,9 +25,9 @@ def test_parse_interval_weeks():
 
 def test_parse_interval_months():
     delta = parse_interval("3m")
-    base = datetime(2026, 1, 15, tzinfo=timezone.utc)
+    base = datetime(2026, 1, 15, tzinfo=UTC)
     result = base + delta
-    assert result == datetime(2026, 4, 15, tzinfo=timezone.utc)
+    assert result == datetime(2026, 4, 15, tzinfo=UTC)
 
 
 def test_parse_interval_invalid():
@@ -59,12 +59,12 @@ def test_compute_next_due_cron_past():
 
 
 def test_render_title_with_date():
-    dt = datetime(2026, 7, 1, 9, 0, tzinfo=timezone.utc)
+    dt = datetime(2026, 7, 1, 9, 0, tzinfo=UTC)
     assert render_title("Change air filters {date}", dt) == "Change air filters 2026-07-01"
 
 
 def test_render_title_no_placeholder():
-    dt = datetime(2026, 7, 1, 9, 0, tzinfo=timezone.utc)
+    dt = datetime(2026, 7, 1, 9, 0, tzinfo=UTC)
     assert render_title("Weekly review", dt) == "Weekly review"
 
 
@@ -74,6 +74,7 @@ def test_validate_schedule_valid_cron():
 
 def test_validate_schedule_invalid_cron():
     from fastapi import HTTPException
+
     with pytest.raises(HTTPException) as exc_info:
         validate_schedule(ScheduleType.CRON, "not a cron")
     assert exc_info.value.status_code == 422
@@ -85,6 +86,7 @@ def test_validate_schedule_valid_interval():
 
 def test_validate_schedule_invalid_interval():
     from fastapi import HTTPException
+
     with pytest.raises(HTTPException) as exc_info:
         validate_schedule(ScheduleType.INTERVAL, "abc")
     assert exc_info.value.status_code == 422
@@ -92,13 +94,19 @@ def test_validate_schedule_invalid_interval():
 
 # --- Integration tests for CRUD ---
 
+
 @pytest.fixture
 async def setup(client):
-    resp = await client.post("/api/v1/setup", json={
-        "team_name": "Home", "team_key": "HOME",
-        "user_name": "John", "user_email": "john@example.com",
-        "include_default_labels": False,
-    })
+    resp = await client.post(
+        "/api/v1/setup",
+        json={
+            "team_name": "Home",
+            "team_key": "HOME",
+            "user_name": "John",
+            "user_email": "john@example.com",
+            "include_default_labels": False,
+        },
+    )
     data = resp.json()
     headers = {"X-API-Key": data["api_key"], "X-User-Id": str(data["user_id"])}
     return {"team_id": data["team_id"], "user_id": data["user_id"], "headers": headers}
@@ -238,7 +246,11 @@ async def test_list_filter_by_active(client, setup):
 async def test_get_recurrence(client, setup):
     create_resp = await client.post(
         f"/api/v1/teams/{setup['team_id']}/recurrences",
-        json={"title_template": "Filter change", "schedule_type": "interval", "schedule_expr": "90d"},
+        json={
+            "title_template": "Filter change",
+            "schedule_type": "interval",
+            "schedule_expr": "90d",
+        },
         headers=setup["headers"],
     )
     rec_id = create_resp.json()["data"]["id"]

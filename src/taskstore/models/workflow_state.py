@@ -15,7 +15,9 @@ class WorkflowState(Base):
     __table_args__ = (UniqueConstraint("team_id", "name"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    team_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("teams.id"), nullable=False)
+    team_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("teams.id"), nullable=False
+    )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     type: Mapped[StateType] = mapped_column(nullable=False)
     color: Mapped[str | None] = mapped_column(String(7))

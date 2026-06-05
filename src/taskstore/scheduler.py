@@ -5,17 +5,15 @@ import os
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+import taskstore.models  # noqa: F401 — register all models
+from taskstore.engine.audit import record_audit
 from taskstore.logging_config import configure_logging
 from taskstore.models.enums import AuditAction, StateType
-from taskstore.models.recurrence import Recurrence
-from taskstore.models.team import Team
-from taskstore.models.workflow_state import WorkflowState
 from taskstore.models.issue import Issue
-from taskstore.engine.audit import record_audit
+from taskstore.models.recurrence import Recurrence
+from taskstore.models.workflow_state import WorkflowState
 from taskstore.services.recurrence_service import compute_next_due, render_title
 from taskstore.utils.time import now_utc
-
-import taskstore.models  # noqa: F401 — register all models
 
 configure_logging(
     level=os.environ.get("LOG_LEVEL", "info"),
@@ -65,7 +63,12 @@ async def spawn_issue(db: AsyncSession, rec: Recurrence) -> Issue:
     await db.flush()
 
     await record_audit(
-        db, rec.team_id, "recurrence_spawn", issue.id, AuditAction.CREATE, rec.created_by,
+        db,
+        rec.team_id,
+        "recurrence_spawn",
+        issue.id,
+        AuditAction.CREATE,
+        rec.created_by,
         changes={"recurrence_id": str(rec.id)},
     )
 
@@ -101,7 +104,9 @@ async def process_due_recurrences(session_factory: async_sessionmaker) -> int:
 
                 while rec.next_due_at <= now:
                     rec.next_due_at = compute_next_due(
-                        rec.schedule_type, rec.schedule_expr, rec.next_due_at,
+                        rec.schedule_type,
+                        rec.schedule_expr,
+                        rec.next_due_at,
                     )
 
                 await db.commit()

@@ -34,9 +34,7 @@ async def test_get_team_does_not_return_api_key(client):
     )
     assert get_resp.status_code == 200
     body = get_resp.json()["data"]
-    assert "api_key" not in body, (
-        f"GET /teams must not echo api_key; got: {body}"
-    )
+    assert "api_key" not in body, f"GET /teams must not echo api_key; got: {body}"
 
 
 @pytest.mark.asyncio
@@ -80,9 +78,7 @@ async def test_api_key_not_stored_plaintext_in_db(client):
     plaintext = bootstrap["api_key"]
 
     async with TestSessionLocal() as session:
-        row = await session.execute(
-            select(Team).where(Team.name == "NoPlaintext")
-        )
+        row = await session.execute(select(Team).where(Team.name == "NoPlaintext"))
         team = row.scalar_one()
         # The stored value, whatever its attribute name, must NOT equal
         # the plaintext key that was returned to the client.

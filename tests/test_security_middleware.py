@@ -4,6 +4,7 @@ CORS origins are configured via the CORS_ORIGINS env var (comma-
 separated). Request bodies beyond the configurable size limit are
 rejected with 413.
 """
+
 import pytest
 
 
@@ -28,7 +29,11 @@ async def test_request_body_too_large_rejected(client):
     """A request body beyond the configured limit returns 413 before
     any endpoint logic runs."""
     # Default limit is 1 MiB. Send 2 MiB.
-    big_body = {"team_name": "X" * (2 * 1024 * 1024), "team_key": "XX",
-                "user_name": "a", "user_email": "a@example.com"}
+    big_body = {
+        "team_name": "X" * (2 * 1024 * 1024),
+        "team_key": "XX",
+        "user_name": "a",
+        "user_email": "a@example.com",
+    }
     resp = await client.post("/api/v1/setup", json=big_body)
     assert resp.status_code == 413

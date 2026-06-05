@@ -130,15 +130,11 @@ def _not(cond: dict, ctx: RuleContext) -> bool:
 
 
 def _count_query(cond: dict, ctx: RuleContext) -> bool:
-    raise ValueError(
-        "count_query conditions require DB access; use the full evaluator"
-    )
+    raise ValueError("count_query conditions require DB access; use the full evaluator")
 
 
 def _estimate_sum(cond: dict, ctx: RuleContext) -> bool:
-    raise ValueError(
-        "estimate_sum conditions require DB access; use the full evaluator"
-    )
+    raise ValueError("estimate_sum conditions require DB access; use the full evaluator")
 
 
 _HANDLERS: dict[str, Any] = {

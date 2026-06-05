@@ -44,7 +44,12 @@ async def list_sessions_endpoint(
     offset: int = Query(0),
 ):
     sessions, total = await session_service.list_sessions(
-        db, team_id, session_type=type, state=state, limit=limit, offset=offset,
+        db,
+        team_id,
+        session_type=type,
+        state=state,
+        limit=limit,
+        offset=offset,
     )
     return Envelope(data=sessions, meta=Meta(total=total, limit=limit, offset=offset))
 

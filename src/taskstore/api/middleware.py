@@ -5,6 +5,7 @@
   endpoint logic runs. Caps JSONB bloat and naive DoS attempts at
   the edge.
 """
+
 from __future__ import annotations
 
 import os
@@ -35,9 +36,13 @@ class MaxBodySizeMiddleware(BaseHTTPMiddleware):
             try:
                 if int(cl) > self.max_bytes:
                     return JSONResponse(
-                        Envelope(errors=[ErrorDetail(
-                            message=f"Request body exceeds {self.max_bytes} byte limit",
-                        )]).model_dump(mode="json"),
+                        Envelope(
+                            errors=[
+                                ErrorDetail(
+                                    message=f"Request body exceeds {self.max_bytes} byte limit",
+                                )
+                            ]
+                        ).model_dump(mode="json"),
                         status_code=413,
                     )
             except ValueError:

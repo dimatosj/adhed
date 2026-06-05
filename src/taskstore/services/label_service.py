@@ -35,11 +35,7 @@ async def create_label(
 
 
 async def list_labels(db: AsyncSession, team_id: uuid.UUID) -> list[Label]:
-    result = await db.execute(
-        select(Label)
-        .where(Label.team_id == team_id)
-        .order_by(Label.name)
-    )
+    result = await db.execute(select(Label).where(Label.team_id == team_id).order_by(Label.name))
     return list(result.scalars().all())
 
 
@@ -65,9 +61,7 @@ async def update_label(
     if data.description is not None:
         label.description = data.description
     if user_id is not None:
-        await record_audit(
-            db, label.team_id, "label", label.id, AuditAction.UPDATE, user_id
-        )
+        await record_audit(db, label.team_id, "label", label.id, AuditAction.UPDATE, user_id)
     await db.commit()
     await db.refresh(label)
     return label
@@ -78,8 +72,6 @@ async def delete_label(
 ) -> None:
     label = await get_label(db, label_id)
     if user_id is not None:
-        await record_audit(
-            db, label.team_id, "label", label.id, AuditAction.DELETE, user_id
-        )
+        await record_audit(db, label.team_id, "label", label.id, AuditAction.DELETE, user_id)
     await db.delete(label)
     await db.commit()

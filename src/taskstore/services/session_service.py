@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi import HTTPException
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from taskstore.engine.audit import record_audit
@@ -91,7 +91,10 @@ async def update_session(
 
     if "state" in update_data:
         new_state = update_data["state"]
-        if new_state in (SessionState.COMPLETED, SessionState.ABANDONED) and session.completed_at is None:
+        if (
+            new_state in (SessionState.COMPLETED, SessionState.ABANDONED)
+            and session.completed_at is None
+        ):
             session.completed_at = now_utc()
 
     for field, value in update_data.items():

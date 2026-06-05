@@ -27,7 +27,12 @@ async def create_link(
     db: AsyncSession = Depends(get_db),
 ):
     link = await fragment_link_service.create_link(
-        db, fragment_id, data.target_type, data.target_id, user.id, authed_team.id,
+        db,
+        fragment_id,
+        data.target_type,
+        data.target_id,
+        user.id,
+        authed_team.id,
     )
     return Envelope(data=link)
 
@@ -43,7 +48,10 @@ async def get_links(
     target_type: str | None = Query(None),
 ):
     links = await fragment_link_service.get_links(
-        db, fragment_id, authed_team.id, target_type_filter=target_type,
+        db,
+        fragment_id,
+        authed_team.id,
+        target_type_filter=target_type,
     )
     return Envelope(data=links, meta=Meta(total=len(links)))
 

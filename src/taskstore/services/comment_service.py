@@ -24,13 +24,9 @@ async def create_comment(
     return CommentResponse.model_validate(comment)
 
 
-async def list_comments(
-    db: AsyncSession, issue_id: uuid.UUID
-) -> list[CommentResponse]:
+async def list_comments(db: AsyncSession, issue_id: uuid.UUID) -> list[CommentResponse]:
     result = await db.execute(
-        select(Comment)
-        .where(Comment.issue_id == issue_id)
-        .order_by(Comment.created_at.asc())
+        select(Comment).where(Comment.issue_id == issue_id).order_by(Comment.created_at.asc())
     )
     comments = list(result.scalars().all())
     return [CommentResponse.model_validate(c) for c in comments]

@@ -44,7 +44,12 @@ async def list_recurrences_endpoint(
     offset: int = Query(0),
 ):
     recurrences, total = await recurrence_service.list_recurrences(
-        db, team_id, active=active, schedule_type=schedule_type, limit=limit, offset=offset,
+        db,
+        team_id,
+        active=active,
+        schedule_type=schedule_type,
+        limit=limit,
+        offset=offset,
     )
     return Envelope(data=recurrences, meta=Meta(total=total, limit=limit, offset=offset))
 

@@ -3,11 +3,16 @@ import pytest
 
 @pytest.fixture
 async def setup(client):
-    resp = await client.post("/api/v1/setup", json={
-        "team_name": "Home", "team_key": "HOME",
-        "user_name": "John", "user_email": "john@example.com",
-        "include_default_labels": False,
-    })
+    resp = await client.post(
+        "/api/v1/setup",
+        json={
+            "team_name": "Home",
+            "team_key": "HOME",
+            "user_name": "John",
+            "user_email": "john@example.com",
+            "include_default_labels": False,
+        },
+    )
     data = resp.json()
     headers = {"X-API-Key": data["api_key"], "X-User-Id": str(data["user_id"])}
     return {"team_id": data["team_id"], "user_id": data["user_id"], "headers": headers}
@@ -23,7 +28,9 @@ async def test_create_fragment(client, setup):
             "summary": "Tony at Ace Plumbing is a reliable plumber",
             "topics": ["contractors", "home-maintenance"],
             "domains": ["home"],
-            "entities": [{"name": "Tony", "type": "person", "role": "plumber", "org": "Ace Plumbing"}],
+            "entities": [
+                {"name": "Tony", "type": "person", "role": "plumber", "org": "Ace Plumbing"}
+            ],
             "source": {"room": "General"},
         },
         headers=setup["headers"],
@@ -56,9 +63,19 @@ async def test_get_fragment(client, setup):
 async def test_list_fragments_filter_by_type(client, setup):
     headers = setup["headers"]
     tid = setup["team_id"]
-    await client.post(f"/api/v1/teams/{tid}/fragments", json={"text": "Tony", "type": "person"}, headers=headers)
-    await client.post(f"/api/v1/teams/{tid}/fragments", json={"text": "WiFi pass", "type": "credential"}, headers=headers)
-    await client.post(f"/api/v1/teams/{tid}/fragments", json={"text": "Good day", "type": "journal"}, headers=headers)
+    await client.post(
+        f"/api/v1/teams/{tid}/fragments", json={"text": "Tony", "type": "person"}, headers=headers
+    )
+    await client.post(
+        f"/api/v1/teams/{tid}/fragments",
+        json={"text": "WiFi pass", "type": "credential"},
+        headers=headers,
+    )
+    await client.post(
+        f"/api/v1/teams/{tid}/fragments",
+        json={"text": "Good day", "type": "journal"},
+        headers=headers,
+    )
 
     resp = await client.get(f"/api/v1/teams/{tid}/fragments?type=person", headers=headers)
     assert len(resp.json()["data"]) == 1
@@ -69,8 +86,16 @@ async def test_list_fragments_filter_by_type(client, setup):
 async def test_list_fragments_filter_by_domain(client, setup):
     headers = setup["headers"]
     tid = setup["team_id"]
-    await client.post(f"/api/v1/teams/{tid}/fragments", json={"text": "Dentist note", "type": "person", "domains": ["health"]}, headers=headers)
-    await client.post(f"/api/v1/teams/{tid}/fragments", json={"text": "Faucet note", "type": "memory", "domains": ["home"]}, headers=headers)
+    await client.post(
+        f"/api/v1/teams/{tid}/fragments",
+        json={"text": "Dentist note", "type": "person", "domains": ["health"]},
+        headers=headers,
+    )
+    await client.post(
+        f"/api/v1/teams/{tid}/fragments",
+        json={"text": "Faucet note", "type": "memory", "domains": ["home"]},
+        headers=headers,
+    )
 
     resp = await client.get(f"/api/v1/teams/{tid}/fragments?domain=health", headers=headers)
     assert len(resp.json()["data"]) == 1
@@ -81,8 +106,16 @@ async def test_list_fragments_filter_by_domain(client, setup):
 async def test_list_fragments_filter_by_topic(client, setup):
     headers = setup["headers"]
     tid = setup["team_id"]
-    await client.post(f"/api/v1/teams/{tid}/fragments", json={"text": "Great tiles", "type": "resource", "topics": ["kitchen-tiles"]}, headers=headers)
-    await client.post(f"/api/v1/teams/{tid}/fragments", json={"text": "Nice paint", "type": "resource", "topics": ["paint-colors"]}, headers=headers)
+    await client.post(
+        f"/api/v1/teams/{tid}/fragments",
+        json={"text": "Great tiles", "type": "resource", "topics": ["kitchen-tiles"]},
+        headers=headers,
+    )
+    await client.post(
+        f"/api/v1/teams/{tid}/fragments",
+        json={"text": "Nice paint", "type": "resource", "topics": ["paint-colors"]},
+        headers=headers,
+    )
 
     resp = await client.get(f"/api/v1/teams/{tid}/fragments?topic=kitchen-tiles", headers=headers)
     assert len(resp.json()["data"]) == 1
@@ -93,13 +126,23 @@ async def test_list_fragments_filter_by_topic(client, setup):
 async def test_list_fragments_filter_by_project(client, setup):
     headers = setup["headers"]
     tid = setup["team_id"]
-    await client.post(f"/api/v1/teams/{tid}/fragments", json={
-        "text": "Tile idea", "type": "idea",
-        "source": {"linked_project_id": "proj_abc"},
-    }, headers=headers)
-    await client.post(f"/api/v1/teams/{tid}/fragments", json={
-        "text": "Unlinked note", "type": "memory",
-    }, headers=headers)
+    await client.post(
+        f"/api/v1/teams/{tid}/fragments",
+        json={
+            "text": "Tile idea",
+            "type": "idea",
+            "source": {"linked_project_id": "proj_abc"},
+        },
+        headers=headers,
+    )
+    await client.post(
+        f"/api/v1/teams/{tid}/fragments",
+        json={
+            "text": "Unlinked note",
+            "type": "memory",
+        },
+        headers=headers,
+    )
 
     resp = await client.get(f"/api/v1/teams/{tid}/fragments?project_id=proj_abc", headers=headers)
     assert len(resp.json()["data"]) == 1
@@ -110,8 +153,16 @@ async def test_list_fragments_filter_by_project(client, setup):
 async def test_list_fragments_full_text_search(client, setup):
     headers = setup["headers"]
     tid = setup["team_id"]
-    await client.post(f"/api/v1/teams/{tid}/fragments", json={"text": "Tony from Ace Plumbing", "type": "person"}, headers=headers)
-    await client.post(f"/api/v1/teams/{tid}/fragments", json={"text": "Great Thai food on 5th", "type": "place"}, headers=headers)
+    await client.post(
+        f"/api/v1/teams/{tid}/fragments",
+        json={"text": "Tony from Ace Plumbing", "type": "person"},
+        headers=headers,
+    )
+    await client.post(
+        f"/api/v1/teams/{tid}/fragments",
+        json={"text": "Great Thai food on 5th", "type": "place"},
+        headers=headers,
+    )
 
     resp = await client.get(f"/api/v1/teams/{tid}/fragments?title_search=plumbing", headers=headers)
     assert len(resp.json()["data"]) == 1
@@ -159,9 +210,21 @@ async def test_delete_fragment(client, setup):
 async def test_list_topics(client, setup):
     headers = setup["headers"]
     tid = setup["team_id"]
-    await client.post(f"/api/v1/teams/{tid}/fragments", json={"text": "A", "type": "idea", "topics": ["kitchen-tiles", "home-reno"]}, headers=headers)
-    await client.post(f"/api/v1/teams/{tid}/fragments", json={"text": "B", "type": "idea", "topics": ["kitchen-tiles"]}, headers=headers)
-    await client.post(f"/api/v1/teams/{tid}/fragments", json={"text": "C", "type": "resource", "topics": ["adhd-tips"]}, headers=headers)
+    await client.post(
+        f"/api/v1/teams/{tid}/fragments",
+        json={"text": "A", "type": "idea", "topics": ["kitchen-tiles", "home-reno"]},
+        headers=headers,
+    )
+    await client.post(
+        f"/api/v1/teams/{tid}/fragments",
+        json={"text": "B", "type": "idea", "topics": ["kitchen-tiles"]},
+        headers=headers,
+    )
+    await client.post(
+        f"/api/v1/teams/{tid}/fragments",
+        json={"text": "C", "type": "resource", "topics": ["adhd-tips"]},
+        headers=headers,
+    )
 
     resp = await client.get(f"/api/v1/teams/{tid}/fragments/topics", headers=headers)
     assert resp.status_code == 200
@@ -176,7 +239,11 @@ async def test_list_topics(client, setup):
 async def test_fragment_audited(client, setup):
     headers = setup["headers"]
     tid = setup["team_id"]
-    await client.post(f"/api/v1/teams/{tid}/fragments", json={"text": "Audit me", "type": "memory"}, headers=headers)
+    await client.post(
+        f"/api/v1/teams/{tid}/fragments",
+        json={"text": "Audit me", "type": "memory"},
+        headers=headers,
+    )
 
     resp = await client.get(f"/api/v1/teams/{tid}/audit?entity_type=fragment", headers=headers)
     assert resp.status_code == 200

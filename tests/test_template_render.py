@@ -5,6 +5,7 @@ user-supplied title like "Pay {priority} bill" would see its
 `{priority}` placeholder substituted in the next pass — recursive
 substitution that leaks context fields into title-as-input strings.
 """
+
 from taskstore.rules.actions import _render_template
 from taskstore.rules.context import RuleContext
 

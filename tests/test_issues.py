@@ -234,7 +234,9 @@ async def test_create_subtask_with_position(client, setup):
     parent_id = parent_resp.json()["data"]["id"]
 
     # Create children with positions
-    for i, title in enumerate(["Step 1: Buy parts", "Step 2: Turn off water", "Step 3: Replace washer"], start=1):
+    for i, title in enumerate(
+        ["Step 1: Buy parts", "Step 2: Turn off water", "Step 3: Replace washer"], start=1
+    ):
         resp = await client.post(
             f"/api/v1/teams/{team_id}/issues",
             json={"title": title, "parent_id": parent_id, "position": i},
@@ -326,7 +328,9 @@ async def test_completion_rollup_flags_parent(client, setup):
         headers=headers,
     )
     parent_data = parent_resp.json()["data"]
-    assert parent_data.get("triage_context") is None or not parent_data.get("triage_context", {}).get("children_all_done")
+    assert parent_data.get("triage_context") is None or not parent_data.get(
+        "triage_context", {}
+    ).get("children_all_done")
 
     # Complete second child — parent SHOULD be flagged
     await client.patch(

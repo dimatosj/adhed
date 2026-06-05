@@ -3,11 +3,16 @@ import pytest
 
 @pytest.fixture
 async def setup(client):
-    resp = await client.post("/api/v1/setup", json={
-        "team_name": "Home", "team_key": "HOME",
-        "user_name": "John", "user_email": "john@example.com",
-        "include_default_labels": False,
-    })
+    resp = await client.post(
+        "/api/v1/setup",
+        json={
+            "team_name": "Home",
+            "team_key": "HOME",
+            "user_name": "John",
+            "user_email": "john@example.com",
+            "include_default_labels": False,
+        },
+    )
     data = resp.json()
     headers = {"X-API-Key": data["api_key"], "X-User-Id": str(data["user_id"])}
     return {"team_id": data["team_id"], "user_id": data["user_id"], "headers": headers}

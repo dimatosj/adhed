@@ -3,8 +3,6 @@ import uuid
 from datetime import date
 
 from fastapi import HTTPException
-import json as _json
-
 from sqlalchemy import and_, func, select, type_coerce
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -62,38 +60,34 @@ async def _validate_references(
     this before creating/updating an Issue.
     """
     if state_id is not None:
-        row = await db.execute(
-            select(WorkflowState.team_id).where(WorkflowState.id == state_id)
-        )
+        row = await db.execute(select(WorkflowState.team_id).where(WorkflowState.id == state_id))
         owner = row.scalar_one_or_none()
         if owner is None or owner != team_id:
             raise HTTPException(status_code=422, detail="state_id is not in this team")
 
     if project_id is not None:
-        row = await db.execute(
-            select(Project.team_id).where(Project.id == project_id)
-        )
+        row = await db.execute(select(Project.team_id).where(Project.id == project_id))
         owner = row.scalar_one_or_none()
         if owner is None or owner != team_id:
             raise HTTPException(status_code=422, detail="project_id is not in this team")
 
     if parent_id is not None:
-        row = await db.execute(
-            select(Issue.team_id).where(Issue.id == parent_id)
-        )
+        row = await db.execute(select(Issue.team_id).where(Issue.id == parent_id))
         owner = row.scalar_one_or_none()
         if owner is None or owner != team_id:
             raise HTTPException(status_code=422, detail="parent_id is not in this team")
 
     if label_ids:
         row = await db.execute(
-            select(func.count()).select_from(Label).where(
-                Label.id.in_(label_ids), Label.team_id == team_id
-            )
+            select(func.count())
+            .select_from(Label)
+            .where(Label.id.in_(label_ids), Label.team_id == team_id)
         )
         found = row.scalar_one()
         if found != len(set(label_ids)):
-            raise HTTPException(status_code=422, detail="one or more label_ids are not in this team")
+            raise HTTPException(
+                status_code=422, detail="one or more label_ids are not in this team"
+            )
 
     if assignee_id is not None:
         row = await db.execute(
@@ -139,9 +133,7 @@ async def _resolve_default_state(db: AsyncSession, team: Team) -> uuid.UUID:
 async def _build_response(db: AsyncSession, issue: Issue) -> IssueResponse:
     """Build an IssueResponse with state info and labels."""
     # Load state
-    result = await db.execute(
-        select(WorkflowState).where(WorkflowState.id == issue.state_id)
-    )
+    result = await db.execute(select(WorkflowState).where(WorkflowState.id == issue.state_id))
     state = result.scalar_one()
 
     # Load labels
@@ -260,15 +252,23 @@ async def update_issue(
             )
 
     # Capture old values for diff before mutating
-    TRACKED_FIELDS = ["title", "description", "priority", "estimate", "state_id",
-                      "assignee_id", "project_id", "due_date", "type", "custom_fields",
-                      "triage_context", "position"]
+    TRACKED_FIELDS = [
+        "title",
+        "description",
+        "priority",
+        "estimate",
+        "state_id",
+        "assignee_id",
+        "project_id",
+        "due_date",
+        "type",
+        "custom_fields",
+        "triage_context",
+        "position",
+    ]
     old_values = {f: getattr(issue, f) for f in TRACKED_FIELDS}
     # Normalise UUIDs to strings so compute_diff can compare them
-    old_values_str = {
-        k: str(v) if isinstance(v, uuid.UUID) else v
-        for k, v in old_values.items()
-    }
+    old_values_str = {k: str(v) if isinstance(v, uuid.UUID) else v for k, v in old_values.items()}
 
     old_assignee = issue.assignee_id
 
@@ -310,22 +310,16 @@ async def update_issue(
     try:
         # State change trigger
         if old_state is not None and new_state is not None:
-            effects = await evaluate_rules(
-                db, issue.team_id, RuleTrigger.ISSUE_STATE_CHANGED, ctx
-            )
+            effects = await evaluate_rules(db, issue.team_id, RuleTrigger.ISSUE_STATE_CHANGED, ctx)
             all_effects.extend(effects)
 
         # Assignee change trigger
         if "assignee_id" in update_data and update_data["assignee_id"] != old_assignee:
-            effects = await evaluate_rules(
-                db, issue.team_id, RuleTrigger.ISSUE_ASSIGNED, ctx
-            )
+            effects = await evaluate_rules(db, issue.team_id, RuleTrigger.ISSUE_ASSIGNED, ctx)
             all_effects.extend(effects)
 
         # General update trigger
-        effects = await evaluate_rules(
-            db, issue.team_id, RuleTrigger.ISSUE_UPDATED, ctx
-        )
+        effects = await evaluate_rules(db, issue.team_id, RuleTrigger.ISSUE_UPDATED, ctx)
         all_effects.extend(effects)
 
     except (RuleRejection, RuleEvaluationError) as exc:
@@ -333,11 +327,13 @@ async def update_issue(
         raise HTTPException(
             status_code=422,
             detail=Envelope(
-                errors=[ErrorDetail(
-                    rule_id=str(exc.rule_id),
-                    rule_name=exc.rule_name,
-                    message=exc.message,
-                )],
+                errors=[
+                    ErrorDetail(
+                        rule_id=str(exc.rule_id),
+                        rule_name=exc.rule_name,
+                        message=exc.message,
+                    )
+                ],
             ).model_dump(),
         )
 
@@ -347,7 +343,9 @@ async def update_issue(
 
     # Compute diff using string-normalised new values
     new_values_str = {
-        k: str(update_data[k]) if isinstance(update_data.get(k), uuid.UUID) else update_data.get(k, old_values_str[k])
+        k: str(update_data[k])
+        if isinstance(update_data.get(k), uuid.UUID)
+        else update_data.get(k, old_values_str[k])
         for k in TRACKED_FIELDS
     }
     diff = compute_diff(old_values_str, new_values_str, TRACKED_FIELDS)
@@ -364,7 +362,11 @@ async def update_issue(
     await db.commit()
 
     # Completion rollup: when a child completes, check if all siblings are done
-    if new_state and new_state.type in (StateType.COMPLETED, StateType.CANCELED) and issue.parent_id:
+    if (
+        new_state
+        and new_state.type in (StateType.COMPLETED, StateType.CANCELED)
+        and issue.parent_id
+    ):
         siblings_result = await db.execute(
             select(Issue).where(
                 Issue.parent_id == issue.parent_id,
@@ -384,9 +386,7 @@ async def update_issue(
 
             all_done = all(s.state_id in terminal_ids for s in siblings)
             if all_done:
-                parent_result = await db.execute(
-                    select(Issue).where(Issue.id == issue.parent_id)
-                )
+                parent_result = await db.execute(select(Issue).where(Issue.id == issue.parent_id))
                 parent = parent_result.scalar_one_or_none()
                 if parent:
                     ctx = parent.triage_context or {}
@@ -464,12 +464,9 @@ async def list_issues(
     # State type filter
     if state_type:
         type_values = [StateType(t.strip()) for t in state_type.split(",")]
-        state_type_subq = (
-            select(WorkflowState.id)
-            .where(
-                WorkflowState.team_id == team_id,
-                WorkflowState.type.in_(type_values),
-            )
+        state_type_subq = select(WorkflowState.id).where(
+            WorkflowState.team_id == team_id,
+            WorkflowState.type.in_(type_values),
         )
         filters.append(Issue.state_id.in_(state_type_subq))
 
@@ -526,12 +523,9 @@ async def list_issues(
     if overdue:
         today = date.today()
         filters.append(Issue.due_date < today)
-        non_terminal_subq = (
-            select(WorkflowState.id)
-            .where(
-                WorkflowState.team_id == team_id,
-                WorkflowState.type.notin_([StateType.COMPLETED, StateType.CANCELED]),
-            )
+        non_terminal_subq = select(WorkflowState.id).where(
+            WorkflowState.team_id == team_id,
+            WorkflowState.type.notin_([StateType.COMPLETED, StateType.CANCELED]),
         )
         filters.append(Issue.state_id.in_(non_terminal_subq))
 
@@ -663,9 +657,7 @@ async def _create_issue_impl(
         await db.flush()
 
     # Load state for rule context
-    state_result = await db.execute(
-        select(WorkflowState).where(WorkflowState.id == state_id)
-    )
+    state_result = await db.execute(select(WorkflowState).where(WorkflowState.id == state_id))
     state = state_result.scalar_one()
 
     # Build rule context
@@ -695,11 +687,13 @@ async def _create_issue_impl(
         raise HTTPException(
             status_code=422,
             detail=Envelope(
-                errors=[ErrorDetail(
-                    rule_id=str(exc.rule_id),
-                    rule_name=exc.rule_name,
-                    message=exc.message,
-                )],
+                errors=[
+                    ErrorDetail(
+                        rule_id=str(exc.rule_id),
+                        rule_name=exc.rule_name,
+                        message=exc.message,
+                    )
+                ],
             ).model_dump(),
         )
 
@@ -727,12 +721,9 @@ async def batch_update_issues(
     if "state_type" in filter_params:
         state_type_val = filter_params["state_type"]
         type_values = [StateType(t.strip()) for t in state_type_val.split(",")]
-        state_type_subq = (
-            select(WorkflowState.id)
-            .where(
-                WorkflowState.team_id == team_id,
-                WorkflowState.type.in_(type_values),
-            )
+        state_type_subq = select(WorkflowState.id).where(
+            WorkflowState.team_id == team_id,
+            WorkflowState.type.in_(type_values),
         )
         query = query.where(Issue.state_id.in_(state_type_subq))
 
@@ -780,6 +771,7 @@ async def convert_to_project(
     await db.refresh(project)
 
     from taskstore.schemas.project import ProjectResponse
+
     project_response = ProjectResponse(
         id=project.id,
         team_id=project.team_id,

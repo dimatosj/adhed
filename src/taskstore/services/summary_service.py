@@ -30,9 +30,7 @@ async def get_summary(
     seven_days_from_now = today + timedelta(days=7)
 
     # State type mapping: state_id -> state_type
-    state_result = await db.execute(
-        select(WorkflowState).where(WorkflowState.team_id == team_id)
-    )
+    state_result = await db.execute(select(WorkflowState).where(WorkflowState.team_id == team_id))
     states = list(state_result.scalars().all())
     state_ids_by_type: dict[StateType, list[uuid.UUID]] = {}
     for s in states:
@@ -74,12 +72,14 @@ async def get_summary(
         )
         for issue in result.scalars().all():
             days = (today - issue.due_date).days
-            overdue_items.append(OverdueItem(
-                id=issue.id,
-                title=issue.title,
-                due_date=issue.due_date,
-                days_overdue=days,
-            ))
+            overdue_items.append(
+                OverdueItem(
+                    id=issue.id,
+                    title=issue.title,
+                    due_date=issue.due_date,
+                    days_overdue=days,
+                )
+            )
 
     # --- due_soon (within 7 days, not completed/canceled) ---
     due_soon_items = []
@@ -94,12 +94,14 @@ async def get_summary(
         )
         for issue in result.scalars().all():
             days = (issue.due_date - today).days
-            due_soon_items.append(DueSoonItem(
-                id=issue.id,
-                title=issue.title,
-                due_date=issue.due_date,
-                days_until=days,
-            ))
+            due_soon_items.append(
+                DueSoonItem(
+                    id=issue.id,
+                    title=issue.title,
+                    due_date=issue.due_date,
+                    days_until=days,
+                )
+            )
 
     # --- by_assignee ---
     result = await db.execute(
@@ -140,18 +142,22 @@ async def get_summary(
     recently_completed = []
     if completed_ids:
         result = await db.execute(
-            select(Issue).where(
+            select(Issue)
+            .where(
                 Issue.team_id == team_id,
                 Issue.state_id.in_(completed_ids),
                 Issue.updated_at >= seven_days_ago,
-            ).order_by(Issue.updated_at.desc())
+            )
+            .order_by(Issue.updated_at.desc())
         )
         for issue in result.scalars().all():
-            recently_completed.append(RecentlyCompleted(
-                id=issue.id,
-                title=issue.title,
-                completed_at=issue.updated_at,
-            ))
+            recently_completed.append(
+                RecentlyCompleted(
+                    id=issue.id,
+                    title=issue.title,
+                    completed_at=issue.updated_at,
+                )
+            )
 
     # --- stalled_projects ---
     # Projects with state=started and zero issues in unstarted or started
@@ -170,7 +176,9 @@ async def get_summary(
     for project in result.scalars().all():
         # Count unstarted+started issues
         active_count_result = await db.execute(
-            select(func.count()).select_from(Issue).where(
+            select(func.count())
+            .select_from(Issue)
+            .where(
                 Issue.project_id == project.id,
                 Issue.state_id.in_(active_state_ids) if active_state_ids else Issue.id.is_(None),
             )
@@ -182,7 +190,9 @@ async def get_summary(
             backlog_count = 0
             if backlog_ids:
                 bc_result = await db.execute(
-                    select(func.count()).select_from(Issue).where(
+                    select(func.count())
+                    .select_from(Issue)
+                    .where(
                         Issue.project_id == project.id,
                         Issue.state_id.in_(backlog_ids),
                     )
@@ -190,12 +200,14 @@ async def get_summary(
                 backlog_count = bc_result.scalar_one()
 
             days_since = (now - project.updated_at).days
-            stalled_projects.append(StalledProject(
-                id=project.id,
-                name=project.name,
-                backlog_count=backlog_count,
-                days_since_activity=days_since,
-            ))
+            stalled_projects.append(
+                StalledProject(
+                    id=project.id,
+                    name=project.name,
+                    backlog_count=backlog_count,
+                    days_since_activity=days_since,
+                )
+            )
 
     # --- waiting_for ---
     waiting_for = []
@@ -216,12 +228,14 @@ async def get_summary(
                 )
             )
             for issue in result.scalars().all():
-                waiting_for.append(WaitingForItem(
-                    id=issue.id,
-                    title=issue.title,
-                    assignee=str(issue.assignee_id) if issue.assignee_id else None,
-                    created_by=str(issue.created_by),
-                ))
+                waiting_for.append(
+                    WaitingForItem(
+                        id=issue.id,
+                        title=issue.title,
+                        assignee=str(issue.assignee_id) if issue.assignee_id else None,
+                        created_by=str(issue.created_by),
+                    )
+                )
 
     return SummaryData(
         triage_count=triage_count,

@@ -24,7 +24,9 @@ TARGET_TABLE = {
 }
 
 
-async def _validate_source(db: AsyncSession, fragment_id: uuid.UUID, team_id: uuid.UUID) -> Fragment:
+async def _validate_source(
+    db: AsyncSession, fragment_id: uuid.UUID, team_id: uuid.UUID
+) -> Fragment:
     result = await db.execute(select(Fragment).where(Fragment.id == fragment_id))
     frag = result.scalar_one_or_none()
     if not frag:
@@ -44,7 +46,9 @@ async def _validate_target(db: AsyncSession, target_type: str, target_id: uuid.U
 
 
 def _hydrate_fragment(frag: Fragment) -> tuple[str, dict]:
-    return (frag.summary or frag.text[:80]), {"fragment_type": frag.type.value if frag.type else None}
+    return (frag.summary or frag.text[:80]), {
+        "fragment_type": frag.type.value if frag.type else None
+    }
 
 
 def _hydrate_issue(issue: Issue) -> tuple[str, dict]:
@@ -56,8 +60,8 @@ def _hydrate_project(project: Project) -> tuple[str, dict]:
 
 
 def _hydrate_session(session: Session) -> tuple[str, dict]:
-    stype = session.type.value if hasattr(session.type, 'value') else session.type
-    sstate = session.state.value if hasattr(session.state, 'value') else session.state
+    stype = session.type.value if hasattr(session.type, "value") else session.type
+    sstate = session.state.value if hasattr(session.state, "value") else session.state
     return f"{stype} session", {"state": sstate, "type": stype}
 
 
@@ -92,15 +96,17 @@ async def _hydrate_links(
     responses = []
     for link in links:
         summary, detail = hydrated.get(link.id, ("(deleted)", {}))
-        responses.append(FragmentLinkResponse(
-            id=link.id,
-            direction=directions[link.id],
-            target_type=link.target_type,
-            target_id=link.target_id,
-            summary=summary,
-            detail=detail,
-            created_at=link.created_at,
-        ))
+        responses.append(
+            FragmentLinkResponse(
+                id=link.id,
+                direction=directions[link.id],
+                target_type=link.target_type,
+                target_id=link.target_id,
+                summary=summary,
+                detail=detail,
+                created_at=link.created_at,
+            )
+        )
     return responses
 
 
@@ -188,7 +194,9 @@ async def delete_link(
 ) -> None:
     source = await _validate_source(db, fragment_id, team_id)
     result = await db.execute(
-        select(FragmentLink).where(FragmentLink.id == link_id, FragmentLink.fragment_id == fragment_id)
+        select(FragmentLink).where(
+            FragmentLink.id == link_id, FragmentLink.fragment_id == fragment_id
+        )
     )
     link = result.scalar_one_or_none()
     if not link:

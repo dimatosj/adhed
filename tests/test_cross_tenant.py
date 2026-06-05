@@ -7,7 +7,6 @@ state/project/parent/label. Every FK on an Issue write must be
 verified to belong to the authed team.
 """
 
-
 import pytest
 
 
@@ -56,9 +55,7 @@ async def _fetch_states(client, team_id, api_key):
 @pytest.fixture
 async def two_teams(client):
     # Team A via /setup — creates team + owner in one shot
-    a_setup = await _bootstrap_team_via_setup(
-        client, "TeamA", "TEAMA", "a@example.com"
-    )
+    a_setup = await _bootstrap_team_via_setup(client, "TeamA", "TEAMA", "a@example.com")
     a_states = await _fetch_states(client, a_setup["team_id"], a_setup["api_key"])
     a = {
         "team_id": a_setup["team_id"],

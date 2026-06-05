@@ -42,10 +42,7 @@ async def test_issue_create_audited(client, setup):
     entries = audit_resp.json()["data"]
 
     # Should have at least one create entry for this issue
-    create_entries = [
-        e for e in entries
-        if e["entity_id"] == issue_id and e["action"] == "create"
-    ]
+    create_entries = [e for e in entries if e["entity_id"] == issue_id and e["action"] == "create"]
     assert len(create_entries) == 1
     entry = create_entries[0]
     assert entry["entity_type"] == "issue"
@@ -84,10 +81,7 @@ async def test_issue_update_audited_with_diff(client, setup):
     assert audit_resp.status_code == 200
     entries = audit_resp.json()["data"]
 
-    update_entries = [
-        e for e in entries
-        if e["entity_id"] == issue_id and e["action"] == "update"
-    ]
+    update_entries = [e for e in entries if e["entity_id"] == issue_id and e["action"] == "update"]
     assert len(update_entries) == 1
     changes = update_entries[0]["changes"]
 

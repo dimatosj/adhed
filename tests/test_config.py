@@ -6,12 +6,14 @@ def test_config_loads_from_env(monkeypatch):
     import importlib
 
     from taskstore import config
+
     importlib.reload(config)
     settings = config.Settings()
 
     assert settings.database_url == "postgresql+asyncpg://test:test@localhost/test"
     assert settings.api_port == 9999
     assert settings.log_level == "debug"
+
 
 def test_config_defaults(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://test:test@localhost/test")
@@ -21,6 +23,7 @@ def test_config_defaults(monkeypatch):
     import importlib
 
     from taskstore import config
+
     importlib.reload(config)
     settings = config.Settings()
 

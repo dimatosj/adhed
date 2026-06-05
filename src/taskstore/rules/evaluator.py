@@ -80,9 +80,7 @@ async def evaluate_rules(
         conditions = rule.conditions
         if conditions:
             try:
-                cond_result = await _evaluate_condition_with_db(
-                    db, conditions, ctx, team_id
-                )
+                cond_result = await _evaluate_condition_with_db(db, conditions, ctx, team_id)
             except ValueError as exc:
                 logger.warning(
                     "rule_evaluation_failed",
@@ -261,9 +259,7 @@ async def _evaluate_condition_with_db(
         return evaluate_condition(condition, ctx)
 
 
-async def _build_query_filters(
-    where: dict, ctx: RuleContext, team_id: uuid.UUID
-) -> list:
+async def _build_query_filters(where: dict, ctx: RuleContext, team_id: uuid.UUID) -> list:
     """Build SQLAlchemy filter expressions from a where clause.
 
     Archived issues are excluded by default — WIP limits and similar
@@ -346,9 +342,7 @@ async def _eval_estimate_sum(
     filters = await _build_query_filters(where, ctx, team_id)
 
     query = (
-        select(func.coalesce(func.sum(Issue.estimate), 0))
-        .select_from(Issue)
-        .where(and_(*filters))
+        select(func.coalesce(func.sum(Issue.estimate), 0)).select_from(Issue).where(and_(*filters))
     )
     result = await db.execute(query)
     total = result.scalar_one()

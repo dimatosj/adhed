@@ -4,6 +4,7 @@ Closes the "leaked key = wipe the team" post-launch follow-up from
 SECURITY.md. Rotation is OWNER-only, audit-logged, and replaces the
 old key atomically.
 """
+
 import pytest
 
 from tests.conftest import make_team, make_user
@@ -66,8 +67,11 @@ async def test_rotate_requires_owner(client):
     team, owner_headers = await _bootstrap(client)
     # Add a MEMBER user, try rotating as them
     member = await make_user(
-        client, team["id"], team["api_key"],
-        name="Kristen", email="k@example.com",
+        client,
+        team["id"],
+        team["api_key"],
+        name="Kristen",
+        email="k@example.com",
         as_user_id=team["_setup_user_id"],
     )
     member_headers = {"X-API-Key": team["api_key"], "X-User-Id": member["id"]}

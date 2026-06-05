@@ -42,9 +42,7 @@ async def create_or_add_user(
     # all subsequent members default to MEMBER. Client-supplied roles are
     # rejected at the schema layer (see UserCreate) to prevent privilege
     # escalation.
-    count_result = await db.execute(
-        select(func.count()).where(TeamMembership.team_id == team_id)
-    )
+    count_result = await db.execute(select(func.count()).where(TeamMembership.team_id == team_id))
     member_count = count_result.scalar()
     role = TeamRole.OWNER if member_count == 0 else TeamRole.MEMBER
 
@@ -53,9 +51,7 @@ async def create_or_add_user(
     if acting_user_id is not None:
         # Audits track who added whom. For the /setup bootstrap path
         # there is no acting user yet — the first call passes None.
-        await record_audit(
-            db, team_id, "membership", user.id, AuditAction.CREATE, acting_user_id
-        )
+        await record_audit(db, team_id, "membership", user.id, AuditAction.CREATE, acting_user_id)
     await db.commit()
     await db.refresh(user)
     return user, role

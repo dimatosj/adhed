@@ -22,7 +22,9 @@ class Fragment(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    team_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("teams.id"), nullable=False)
+    team_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("teams.id"), nullable=False
+    )
     text: Mapped[str] = mapped_column(Text, nullable=False)
     type: Mapped[FragmentType] = mapped_column(nullable=False)
     summary: Mapped[str | None] = mapped_column(Text)
@@ -32,10 +34,15 @@ class Fragment(Base):
     subtype: Mapped[str | None] = mapped_column(Text)
     source_url: Mapped[str | None] = mapped_column(Text)
     source: Mapped[dict | None] = mapped_column(JSONB)
-    created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(default=now_utc)
     updated_at: Mapped[datetime] = mapped_column(default=now_utc, onupdate=now_utc)
     text_search: Mapped[str | None] = mapped_column(
         TSVECTOR,
-        Computed("to_tsvector('english', coalesce(text, '') || ' ' || coalesce(summary, ''))", persisted=True),
+        Computed(
+            "to_tsvector('english', coalesce(text, '') || ' ' || coalesce(summary, ''))",
+            persisted=True,
+        ),
     )

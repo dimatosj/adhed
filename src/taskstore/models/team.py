@@ -29,7 +29,9 @@ class Team(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     key: Mapped[str] = mapped_column(String(10), unique=True, nullable=False)
     api_key_hash: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
-    settings: Mapped[dict] = mapped_column(JSONB, default={"archive_days": 30, "triage_enabled": True})
+    settings: Mapped[dict] = mapped_column(
+        JSONB, default={"archive_days": 30, "triage_enabled": True}
+    )
     created_at: Mapped[datetime] = mapped_column(default=now_utc)
     updated_at: Mapped[datetime] = mapped_column(
         default=now_utc,

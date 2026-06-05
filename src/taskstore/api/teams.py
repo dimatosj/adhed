@@ -77,9 +77,7 @@ async def rotate_api_key_endpoint(
     its SHA-256 hash. Record it before closing the response.
     """
     team, new_plaintext = await rotate_api_key(db, team_id, user.id)
-    return Envelope(
-        data=ApiKeyRotateResponse(team_id=team.id, api_key=new_plaintext)
-    )
+    return Envelope(data=ApiKeyRotateResponse(team_id=team.id, api_key=new_plaintext))
 
 
 @router.patch("/{team_id}", response_model=Envelope[TeamResponse])

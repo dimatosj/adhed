@@ -25,9 +25,8 @@ async def list_notifications_endpoint(
     user_id: uuid.UUID | None = Query(None),
 ):
 
-    query = (
-        select(Notification)
-        .where(Notification.team_id == team_id, Notification.read.is_(False))
+    query = select(Notification).where(
+        Notification.team_id == team_id, Notification.read.is_(False)
     )
     if user_id is not None:
         query = query.where(Notification.user_id == user_id)
@@ -50,9 +49,7 @@ async def mark_notification_read_endpoint(
     authed_team: Team = Depends(get_authed_team),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Notification).where(Notification.id == notification_id)
-    )
+    result = await db.execute(select(Notification).where(Notification.id == notification_id))
     notification = result.scalar_one_or_none()
     if not notification:
         raise HTTPException(status_code=404, detail="Notification not found")

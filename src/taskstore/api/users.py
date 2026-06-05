@@ -31,9 +31,7 @@ async def create_user_endpoint(
     caller: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    user, role = await create_or_add_user(
-        db, team_id, data, acting_user_id=caller.id
-    )
+    user, role = await create_or_add_user(db, team_id, data, acting_user_id=caller.id)
     response = UserResponse(
         id=user.id,
         name=user.name,
@@ -61,16 +59,16 @@ async def change_member_role_endpoint(
     Refuses to demote the last OWNER — promote another member first.
     Audit-logged as entity_type=membership, action=update.
     """
-    user, role = await change_member_role(
-        db, team_id, user_id, data.role, acting_user_id=caller.id
+    user, role = await change_member_role(db, team_id, user_id, data.role, acting_user_id=caller.id)
+    return Envelope(
+        data=UserResponse(
+            id=user.id,
+            name=user.name,
+            email=user.email,
+            role=role,
+            created_at=user.created_at,
+        )
     )
-    return Envelope(data=UserResponse(
-        id=user.id,
-        name=user.name,
-        email=user.email,
-        role=role,
-        created_at=user.created_at,
-    ))
 
 
 @router.get("/{team_id}/users", response_model=Envelope[list[UserResponse]])

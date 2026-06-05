@@ -35,7 +35,10 @@ def _to_response(frag: Fragment) -> FragmentResponse:
 
 
 async def create_fragment(
-    db: AsyncSession, team_id: uuid.UUID, user_id: uuid.UUID, data: FragmentCreate,
+    db: AsyncSession,
+    team_id: uuid.UUID,
+    user_id: uuid.UUID,
+    data: FragmentCreate,
 ) -> FragmentResponse:
     frag = Fragment(
         team_id=team_id,
@@ -67,7 +70,10 @@ async def get_fragment(db: AsyncSession, fragment_id: uuid.UUID) -> FragmentResp
 
 
 async def update_fragment(
-    db: AsyncSession, fragment_id: uuid.UUID, user_id: uuid.UUID, data: FragmentUpdate,
+    db: AsyncSession,
+    fragment_id: uuid.UUID,
+    user_id: uuid.UUID,
+    data: FragmentUpdate,
 ) -> FragmentResponse:
     result = await db.execute(select(Fragment).where(Fragment.id == fragment_id))
     frag = result.scalar_one_or_none()
@@ -84,14 +90,18 @@ async def update_fragment(
         setattr(frag, field, value)
 
     if changes:
-        await record_audit(db, frag.team_id, "fragment", frag.id, AuditAction.UPDATE, user_id, changes)
+        await record_audit(
+            db, frag.team_id, "fragment", frag.id, AuditAction.UPDATE, user_id, changes
+        )
     await db.commit()
     await db.refresh(frag)
     return _to_response(frag)
 
 
 async def delete_fragment(
-    db: AsyncSession, fragment_id: uuid.UUID, user_id: uuid.UUID,
+    db: AsyncSession,
+    fragment_id: uuid.UUID,
+    user_id: uuid.UUID,
 ) -> None:
     result = await db.execute(select(Fragment).where(Fragment.id == fragment_id))
     frag = result.scalar_one_or_none()
@@ -135,20 +145,14 @@ async def list_fragments(
         query = query.where(Fragment.topics.any(topic))
 
     if project_id:
-        query = query.where(
-            Fragment.source["linked_project_id"].astext == project_id
-        )
+        query = query.where(Fragment.source["linked_project_id"].astext == project_id)
 
     if issue_id:
-        query = query.where(
-            Fragment.source["linked_issue_id"].astext == issue_id
-        )
+        query = query.where(Fragment.source["linked_issue_id"].astext == issue_id)
 
     if entity_name:
         escaped = entity_name.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        query = query.where(
-            Fragment.entities.cast(str).ilike(f"%{escaped}%")
-        )
+        query = query.where(Fragment.entities.cast(str).ilike(f"%{escaped}%"))
 
     if title_search:
         query = query.where(Fragment.text_search.match(title_search))
