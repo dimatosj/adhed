@@ -315,14 +315,24 @@ async def test_completion_rollup_flags_parent(client, setup):
         assert resp.status_code == 201
         child_ids.append(resp.json()["data"]["id"])
 
-    completed_state_id = states["completed"]["id"]
+    # Children default to triage; completion must follow the valid workflow
+    # path (triage -> unstarted -> started -> completed) — the state machine
+    # rejects a direct triage -> completed jump.
+    async def complete(child_id):
+        for state_id in (
+            states["unstarted"]["id"],
+            states["started"]["id"],
+            states["completed"]["id"],
+        ):
+            resp = await client.patch(
+                f"/api/v1/issues/{child_id}",
+                json={"state_id": state_id},
+                headers=headers,
+            )
+            assert resp.status_code == 200, resp.text
 
     # Complete first child — parent should NOT be flagged yet
-    await client.patch(
-        f"/api/v1/issues/{child_ids[0]}",
-        json={"state_id": completed_state_id},
-        headers=headers,
-    )
+    await complete(child_ids[0])
     parent_resp = await client.get(
         f"/api/v1/issues/{parent_id}",
         headers=headers,
@@ -333,11 +343,7 @@ async def test_completion_rollup_flags_parent(client, setup):
     ).get("children_all_done")
 
     # Complete second child — parent SHOULD be flagged
-    await client.patch(
-        f"/api/v1/issues/{child_ids[1]}",
-        json={"state_id": completed_state_id},
-        headers=headers,
-    )
+    await complete(child_ids[1])
     parent_resp = await client.get(
         f"/api/v1/issues/{parent_id}",
         headers=headers,
