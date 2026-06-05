@@ -143,6 +143,67 @@ async def test_delete_project_with_issues_fails(client, setup):
 
 
 @pytest.mark.asyncio
+async def test_create_project_with_custom_fields(client, setup):
+    headers = setup["headers"]
+    team_id = setup["team_id"]
+
+    resp = await client.post(
+        f"/api/v1/teams/{team_id}/projects",
+        headers=headers,
+        json={"name": "CF Project", "custom_fields": {"domain": "home"}},
+    )
+    assert resp.status_code == 201
+    data = resp.json()["data"]
+    assert data["custom_fields"] == {"domain": "home"}
+
+
+@pytest.mark.asyncio
+async def test_update_project_custom_fields_persists(client, setup):
+    headers = setup["headers"]
+    team_id = setup["team_id"]
+
+    proj_resp = await client.post(
+        f"/api/v1/teams/{team_id}/projects",
+        headers=headers,
+        json={"name": "Patchable", "custom_fields": {"domain": "home"}},
+    )
+    assert proj_resp.status_code == 201
+    project_id = proj_resp.json()["data"]["id"]
+
+    patch_resp = await client.patch(
+        f"/api/v1/projects/{project_id}",
+        headers=headers,
+        json={"custom_fields": {"domain": "work"}},
+    )
+    assert patch_resp.status_code == 200
+
+    get_resp = await client.get(
+        f"/api/v1/projects/{project_id}",
+        headers=headers,
+    )
+    assert get_resp.status_code == 200
+    data = get_resp.json()["data"]
+    assert data["custom_fields"] == {"domain": "work"}
+
+
+@pytest.mark.asyncio
+async def test_oversized_custom_fields_rejected(client, setup):
+    headers = setup["headers"]
+    team_id = setup["team_id"]
+
+    huge = {"bloat": "x" * 20_000}
+    resp = await client.post(
+        f"/api/v1/teams/{team_id}/projects",
+        headers=headers,
+        json={"name": "bloaty", "custom_fields": huge},
+    )
+    assert resp.status_code == 422, resp.text
+    body = resp.json()
+    assert body["data"] is None
+    assert any("custom_fields" in e["message"].lower() for e in body["errors"])
+
+
+@pytest.mark.asyncio
 async def test_delete_empty_project(client, setup):
     headers = setup["headers"]
     team_id = setup["team_id"]

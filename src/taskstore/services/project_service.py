@@ -22,6 +22,7 @@ async def _build_response(
         description=project.description,
         state=project.state,
         lead_id=project.lead_id,
+        custom_fields=project.custom_fields,
         created_at=project.created_at,
         updated_at=project.updated_at,
     )

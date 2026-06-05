@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import ForeignKey, Index, String, Text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from taskstore.database import Base
@@ -12,6 +12,7 @@ from taskstore.utils.time import now_utc
 
 class Project(Base):
     __tablename__ = "projects"
+    __table_args__ = (Index("ix_projects_custom_fields", "custom_fields", postgresql_using="gin"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     team_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("teams.id"), nullable=False)
@@ -19,6 +20,7 @@ class Project(Base):
     description: Mapped[str | None] = mapped_column(Text)
     state: Mapped[ProjectState] = mapped_column(default=ProjectState.PLANNED)
     lead_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    custom_fields: Mapped[dict | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(default=now_utc)
     updated_at: Mapped[datetime] = mapped_column(
         default=now_utc,
