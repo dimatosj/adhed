@@ -66,6 +66,7 @@ class IssueUpdate(BaseModel):
     state_id: uuid.UUID | None = None
     assignee_id: uuid.UUID | None = None
     project_id: uuid.UUID | None = None
+    parent_id: uuid.UUID | None = None
     due_date: date | None = None
     custom_fields: dict | None = None
     triage_context: dict | None = None

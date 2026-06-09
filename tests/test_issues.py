@@ -289,6 +289,225 @@ async def test_delete_issue_with_active_children_fails(client, setup):
 
 
 @pytest.mark.asyncio
+async def test_update_issue_reparent_to_uuid(client, setup):
+    """PATCH parent_id with a UUID re-parents a top-level issue under it."""
+    headers = setup["headers"]
+    team_id = setup["team_id"]
+
+    # Parent A + a child already under A
+    parent_a = await client.post(
+        f"/api/v1/teams/{team_id}/issues",
+        headers=headers,
+        json={"title": "Parent A"},
+    )
+    assert parent_a.status_code == 201
+    a_id = parent_a.json()["data"]["id"]
+
+    child = await client.post(
+        f"/api/v1/teams/{team_id}/issues",
+        headers=headers,
+        json={"title": "Existing child", "parent_id": a_id},
+    )
+    assert child.status_code == 201
+
+    # Top-level issue X
+    x_resp = await client.post(
+        f"/api/v1/teams/{team_id}/issues",
+        headers=headers,
+        json={"title": "Issue X"},
+    )
+    assert x_resp.status_code == 201
+    x_id = x_resp.json()["data"]["id"]
+    assert x_resp.json()["data"]["parent_id"] is None
+
+    # Re-parent X under A
+    patch_resp = await client.patch(
+        f"/api/v1/issues/{x_id}",
+        headers=headers,
+        json={"parent_id": a_id},
+    )
+    assert patch_resp.status_code == 200, patch_resp.text
+    assert patch_resp.json()["data"]["parent_id"] == a_id
+
+    # GET confirms it persisted
+    get_resp = await client.get(f"/api/v1/issues/{x_id}", headers=headers)
+    assert get_resp.status_code == 200
+    assert get_resp.json()["data"]["parent_id"] == a_id
+
+
+@pytest.mark.asyncio
+async def test_update_issue_move_between_parents(client, setup):
+    """PATCH parent_id moves a child from one parent to another."""
+    headers = setup["headers"]
+    team_id = setup["team_id"]
+
+    parent_a = await client.post(
+        f"/api/v1/teams/{team_id}/issues",
+        headers=headers,
+        json={"title": "Parent A"},
+    )
+    assert parent_a.status_code == 201
+    a_id = parent_a.json()["data"]["id"]
+
+    parent_b = await client.post(
+        f"/api/v1/teams/{team_id}/issues",
+        headers=headers,
+        json={"title": "Parent B"},
+    )
+    assert parent_b.status_code == 201
+    b_id = parent_b.json()["data"]["id"]
+
+    child_c = await client.post(
+        f"/api/v1/teams/{team_id}/issues",
+        headers=headers,
+        json={"title": "Child C", "parent_id": a_id},
+    )
+    assert child_c.status_code == 201
+    c_id = child_c.json()["data"]["id"]
+
+    patch_resp = await client.patch(
+        f"/api/v1/issues/{c_id}",
+        headers=headers,
+        json={"parent_id": b_id},
+    )
+    assert patch_resp.status_code == 200, patch_resp.text
+    assert patch_resp.json()["data"]["parent_id"] == b_id
+
+
+@pytest.mark.asyncio
+async def test_update_issue_clear_parent_to_top_level(client, setup):
+    """PATCH parent_id=null clears a child to top-level (explicit null
+    survives exclude_unset) and advances updated_at."""
+    headers = setup["headers"]
+    team_id = setup["team_id"]
+
+    parent_a = await client.post(
+        f"/api/v1/teams/{team_id}/issues",
+        headers=headers,
+        json={"title": "Parent A"},
+    )
+    assert parent_a.status_code == 201
+    a_id = parent_a.json()["data"]["id"]
+
+    child = await client.post(
+        f"/api/v1/teams/{team_id}/issues",
+        headers=headers,
+        json={"title": "Child", "parent_id": a_id},
+    )
+    assert child.status_code == 201
+    child_id = child.json()["data"]["id"]
+    before_updated_at = child.json()["data"]["updated_at"]
+
+    patch_resp = await client.patch(
+        f"/api/v1/issues/{child_id}",
+        headers=headers,
+        json={"parent_id": None},
+    )
+    assert patch_resp.status_code == 200, patch_resp.text
+    data = patch_resp.json()["data"]
+    assert data["parent_id"] is None
+    assert data["updated_at"] > before_updated_at
+
+
+@pytest.mark.asyncio
+async def test_update_issue_omitted_parent_id_leaves_unchanged(client, setup):
+    """PATCH without parent_id must not disturb an existing parent."""
+    headers = setup["headers"]
+    team_id = setup["team_id"]
+
+    parent_a = await client.post(
+        f"/api/v1/teams/{team_id}/issues",
+        headers=headers,
+        json={"title": "Parent A"},
+    )
+    assert parent_a.status_code == 201
+    a_id = parent_a.json()["data"]["id"]
+
+    child = await client.post(
+        f"/api/v1/teams/{team_id}/issues",
+        headers=headers,
+        json={"title": "Child", "parent_id": a_id},
+    )
+    assert child.status_code == 201
+    child_id = child.json()["data"]["id"]
+
+    patch_resp = await client.patch(
+        f"/api/v1/issues/{child_id}",
+        headers=headers,
+        json={"title": "x"},
+    )
+    assert patch_resp.status_code == 200, patch_resp.text
+    assert patch_resp.json()["data"]["parent_id"] == a_id
+
+
+@pytest.mark.asyncio
+async def test_update_issue_self_parent_rejected(client, setup):
+    """An issue cannot be made its own parent."""
+    headers = setup["headers"]
+    team_id = setup["team_id"]
+
+    x_resp = await client.post(
+        f"/api/v1/teams/{team_id}/issues",
+        headers=headers,
+        json={"title": "Issue X"},
+    )
+    assert x_resp.status_code == 201
+    x_id = x_resp.json()["data"]["id"]
+
+    patch_resp = await client.patch(
+        f"/api/v1/issues/{x_id}",
+        headers=headers,
+        json={"parent_id": x_id},
+    )
+    assert patch_resp.status_code == 422, patch_resp.text
+
+
+@pytest.mark.asyncio
+async def test_update_issue_rejects_cross_team_parent(client, setup):
+    """PATCH parent_id pointing at another team's issue is rejected."""
+    headers = setup["headers"]
+    team_id = setup["team_id"]
+
+    # A separate team with its own issue. /setup is bootstrap-only
+    # (single team), so create the second team via POST /teams authed
+    # as the first team's owner — same pattern as test_cross_tenant.
+    other_team_resp = await client.post(
+        "/api/v1/teams",
+        headers=headers,
+        json={"name": "Other", "key": "OTHER"},
+    )
+    assert other_team_resp.status_code == 201, other_team_resp.text
+    other_team = other_team_resp.json()["data"]
+    other_headers = {
+        "X-API-Key": other_team["api_key"],
+        "X-User-Id": setup["user_id"],
+    }
+    other_issue = await client.post(
+        f"/api/v1/teams/{other_team['id']}/issues",
+        headers=other_headers,
+        json={"title": "Other team issue"},
+    )
+    assert other_issue.status_code == 201, other_issue.text
+    other_id = other_issue.json()["data"]["id"]
+
+    # Our own issue
+    x_resp = await client.post(
+        f"/api/v1/teams/{team_id}/issues",
+        headers=headers,
+        json={"title": "Issue X"},
+    )
+    assert x_resp.status_code == 201
+    x_id = x_resp.json()["data"]["id"]
+
+    patch_resp = await client.patch(
+        f"/api/v1/issues/{x_id}",
+        headers=headers,
+        json={"parent_id": other_id},
+    )
+    assert patch_resp.status_code == 422, patch_resp.text
+
+
+@pytest.mark.asyncio
 async def test_completion_rollup_flags_parent(client, setup):
     """When all children complete, parent gets children_all_done flag in triage_context."""
     headers = setup["headers"]

@@ -216,12 +216,17 @@ async def update_issue(
 
     update_data = data.model_dump(exclude_unset=True)
 
+    # An issue cannot be its own parent.
+    if update_data.get("parent_id") == issue_id:
+        raise HTTPException(status_code=422, detail="An issue cannot be its own parent")
+
     # Cross-tenant reference validation — only check fields being changed.
     await _validate_references(
         db,
         issue.team_id,
         state_id=update_data.get("state_id"),
         project_id=update_data.get("project_id"),
+        parent_id=update_data.get("parent_id"),
         assignee_id=update_data.get("assignee_id"),
     )
 
@@ -260,6 +265,7 @@ async def update_issue(
         "state_id",
         "assignee_id",
         "project_id",
+        "parent_id",
         "due_date",
         "type",
         "custom_fields",
