@@ -67,6 +67,7 @@ class SessionType(str, enum.Enum):
     BREAKDOWN = "breakdown"
     INTAKE_SCAN = "intake_scan"
     DAILY_PREP = "daily_prep"
+    FOCUS = "focus"
 
 
 class SessionState(str, enum.Enum):
