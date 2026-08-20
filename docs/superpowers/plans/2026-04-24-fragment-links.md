@@ -74,7 +74,7 @@ Add it after the `Fragment` import line.
 
 - [ ] **Step 3: Verify model loads**
 
-Run: `cd /Users/jsd/projects/adhed && source .venv/bin/activate && python -c "from taskstore.models.fragment_link import FragmentLink; print(FragmentLink.__tablename__)"`
+Run: `source .venv/bin/activate && python -c "from taskstore.models.fragment_link import FragmentLink; print(FragmentLink.__tablename__)"`
 
 Expected: `fragment_links`
 
@@ -120,7 +120,7 @@ class FragmentLinkResponse(BaseModel):
 
 - [ ] **Step 2: Verify schemas load**
 
-Run: `cd /Users/jsd/projects/adhed && source .venv/bin/activate && python -c "from taskstore.schemas.fragment_link import FragmentLinkCreate, FragmentLinkResponse; print('OK')"`
+Run: `source .venv/bin/activate && python -c "from taskstore.schemas.fragment_link import FragmentLinkCreate, FragmentLinkResponse; print('OK')"`
 
 Expected: `OK`
 
@@ -188,7 +188,7 @@ async def test_create_link_between_fragments(client, setup):
 
 - [ ] **Step 2: Run the test to confirm it fails**
 
-Run: `cd /Users/jsd/projects/adhed && source .venv/bin/activate && pytest tests/test_fragment_links.py::test_create_link_between_fragments -v`
+Run: `source .venv/bin/activate && pytest tests/test_fragment_links.py::test_create_link_between_fragments -v`
 
 Expected: FAIL (404 — route doesn't exist yet)
 
@@ -489,7 +489,7 @@ app.include_router(fragment_links_router)
 
 - [ ] **Step 3: Run the create link test**
 
-Run: `cd /Users/jsd/projects/adhed && source .venv/bin/activate && pytest tests/test_fragment_links.py::test_create_link_between_fragments -v`
+Run: `source .venv/bin/activate && pytest tests/test_fragment_links.py::test_create_link_between_fragments -v`
 
 Expected: PASS
 
@@ -743,13 +743,13 @@ async def test_cascade_delete_removes_links(client, setup):
 
 - [ ] **Step 2: Run the full test file**
 
-Run: `cd /Users/jsd/projects/adhed && source .venv/bin/activate && pytest tests/test_fragment_links.py -v`
+Run: `source .venv/bin/activate && pytest tests/test_fragment_links.py -v`
 
 Expected: All tests PASS
 
 - [ ] **Step 3: Run the entire test suite to check for regressions**
 
-Run: `cd /Users/jsd/projects/adhed && source .venv/bin/activate && pytest tests/ -v`
+Run: `source .venv/bin/activate && pytest tests/ -v`
 
 Expected: All tests PASS
 
@@ -812,7 +812,7 @@ def downgrade() -> None:
 
 - [ ] **Step 2: Run the migration against the dev database**
 
-Run: `cd /Users/jsd/projects/adhed && source .venv/bin/activate && alembic upgrade head`
+Run: `source .venv/bin/activate && alembic upgrade head`
 
 Expected: Output showing migration `g4b2` applied successfully.
 
@@ -835,7 +835,7 @@ git commit -m "feat: add fragment_links migration"
 
 - [ ] **Step 1: Rebuild the Docker container**
 
-Run: `cd /Users/jsd/projects/adhed && docker compose up -d --build`
+Run: `docker compose up -d --build`
 
 Expected: Container rebuilds and starts.
 
@@ -848,7 +848,7 @@ Expected: Migration applied (or already at head).
 - [ ] **Step 3: Smoke test — create a link via curl**
 
 ```bash
-source /Users/jsd/projects/adhed/.adhed-credentials
+source .adhed-credentials
 
 # Create two fragments
 FRAG_A=$(curl -sf -X POST "$URL/api/v1/teams/$TEAM_ID/fragments" \
@@ -877,7 +877,7 @@ Expected: Link created with 201, outgoing link visible from A, incoming link vis
 
 - [ ] **Step 4: Run the full test suite one final time**
 
-Run: `cd /Users/jsd/projects/adhed && source .venv/bin/activate && pytest tests/ -v`
+Run: `source .venv/bin/activate && pytest tests/ -v`
 
 Expected: All tests PASS.
 

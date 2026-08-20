@@ -18,3 +18,7 @@ dev-serve.json
 # Internal docs (audits, brainstorms, strategy)
 docs/architecture-audit-*.md
 docs/product-directions-*.md
+
+# Local agent session artifacts
+.claude/
+.claude/
