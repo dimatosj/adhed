@@ -9,8 +9,7 @@ config, and ops hardening.
 Put ADHED behind a reverse proxy (Caddy, nginx, Traefik) that
 terminates TLS. Don't expose the uvicorn port or the Postgres port
 to the public internet. Rotate the API key anytime it leaves trusted
-hands (currently "rotate" means re-run `/setup` on a fresh DB —
-see [post-launch work in SECURITY.md](../SECURITY.md#known-post-launch-work)).
+hands — `POST /teams/{id}/api-key/rotate` (OWNER only).
 
 ## Environment variables
 
@@ -77,6 +76,10 @@ server {
 ```
 
 ## Running with docker compose
+
+Change `POSTGRES_PASSWORD` (and the matching `DATABASE_URL`) from the
+compose default `adhed`/`adhed` before any deployment that binds
+beyond loopback.
 
 ```bash
 docker compose up -d

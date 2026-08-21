@@ -31,8 +31,8 @@ Out of scope:
 ADHED assumes:
 - **API keys are secrets.** Anyone holding a team's API key can read,
   write, and delete that team's data at the role level their
-  membership grants. Rotate by regenerating the team (no key-
-  rotation endpoint yet).
+  membership grants. Rotate a leaked or retired key with
+  `POST /teams/{id}/api-key/rotate` (OWNER only).
 - **X-User-Id is declared, not authenticated.** Team members share
   the team's API key; the X-User-Id header identifies which member
   is acting. A holder of the API key can set any valid member's ID.

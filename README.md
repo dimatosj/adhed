@@ -5,7 +5,6 @@
 [![CI](https://github.com/dimatosj/adhed/actions/workflows/ci.yml/badge.svg)](https://github.com/dimatosj/adhed/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![Tests: 252](https://img.shields.io/badge/tests-252%20passing-brightgreen.svg)](https://github.com/dimatosj/adhed/actions/workflows/ci.yml)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 ADHED is a self-hosted REST API for task management with a
@@ -171,6 +170,25 @@ See [Fragments](docs/fragments.md) and the
 - [Integration Guide](docs/integration-guide.md) — building clients
 - [Architecture](docs/architecture.md) — the three-layer design
 - [Deployment](docs/deployment.md) — running beyond localhost
+- [Fragment-links plan](docs/superpowers/plans/2026-04-24-fragment-links.md)
+  — the working plan a coding agent executed to build fragment links,
+  committed as-is as an artifact of the process
+
+## Limitations
+
+Things ADHED deliberately doesn't do, or doesn't do yet:
+
+- **`X-User-Id` is declared, not authenticated.** Team members share
+  one API key; the header says who is acting, and nothing verifies
+  it. The audit trail is trustworthy at the team level, not the
+  individual level. See [SECURITY.md](SECURITY.md).
+- **Postgres only, by design.** The rules engine and full-text
+  search lean on Postgres features (JSONB, TSVECTOR). There is no
+  SQLite mode.
+- **Single node.** One API server, one database. No clustering,
+  failover, or HA story — resilience means backups.
+- **No UI, on purpose.** You bring the client: an agent, a CLI,
+  `curl`, or the interactive `/docs` page.
 
 ## Contributing
 

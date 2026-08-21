@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- Dependency updates for published advisories: `starlette` 1.0.0 → 1.6.0,
+  `click` → 8.4.2, `idna` → 3.19, `Mako` → 1.4.1, `pydantic-settings`
+  → 2.15.0 (plus small transitive bumps) in `requirements.lock`.
+- CI `pip-audit` is now blocking (was `|| true`) and audits
+  `requirements.lock`; CI installs from the lockfile so it tests the
+  same pins production runs.
+- Pre-commit now scans for committed secrets (`detect-private-key`,
+  `gitleaks`).
+
+### Changed
+- PR template leads with the five questions from the ai-dev-framework.
+- README: removed the hand-maintained test-count badge, added a
+  Limitations section.
+- SECURITY.md / deployment docs: point key rotation at
+  `POST /teams/{id}/api-key/rotate` instead of stale "regenerate the
+  team" guidance.
+- LICENSE copyright holder is John Dimatos.
+
 ## [0.2.0] — Knowledge Fragments
 
 ### Added

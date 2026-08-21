@@ -1,5 +1,14 @@
 # Fragment Links Implementation Plan
 
+> **About this document:** This is the working plan a coding agent
+> executed to build fragment links — committed as-is, unchecked
+> checkboxes and all, as an artifact of the process rather than
+> documentation maintained after the fact. The resulting
+> implementation shipped: see the
+> [fragment-links design spec](../specs/2026-04-24-fragment-links-design.md)
+> and the feature itself (`src/taskstore/api/fragment_links.py`,
+> `tests/test_fragment_links.py`).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add directed polymorphic links between fragments and other entities (fragments, issues, projects) with bidirectional traversal and hydrated summaries.
