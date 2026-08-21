@@ -18,3 +18,12 @@ repos:
       - id: check-added-large-files
         args: [--maxkb=500]
       - id: check-merge-conflict
+      - id: detect-private-key
+
+  # Secret scanning — blocks commits that contain API keys, tokens,
+  # or credentials. Runs with gitleaks' built-in ruleset; no repo
+  # config file needed.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
