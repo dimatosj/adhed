@@ -263,13 +263,18 @@ async def test_session_audited(client, setup):
     assert entries[0]["entity_type"] == "session"
     assert entries[0]["action"] == "create"
 
+
 async def test_create_focus_session(client, setup):
     """M2 Phase C: focus sessions (type='focus') are valid; timing fields ride the JSONB payload."""
     resp = await client.post(
         f"/api/v1/teams/{setup['team_id']}/sessions",
         json={
             "type": "focus",
-            "payload": {"issue_id": "some-issue", "planned_duration": 30, "started_at": "2026-07-16T15:00:00Z"},
+            "payload": {
+                "issue_id": "some-issue",
+                "planned_duration": 30,
+                "started_at": "2026-07-16T15:00:00Z",
+            },
         },
         headers=setup["headers"],
     )
@@ -277,4 +282,3 @@ async def test_create_focus_session(client, setup):
     data = resp.json()["data"]
     assert data["type"] == "focus"
     assert data["payload"]["planned_duration"] == 30
-

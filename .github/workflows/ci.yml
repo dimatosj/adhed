@@ -43,7 +43,12 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          # Install from the lockfile so CI tests the exact pins production
+          # runs (the Dockerfile installs requirements.lock too). The lock
+          # is generated from `pip install -e ".[dev]"` and already pins the
+          # dev tools (pytest, ruff, httpx).
+          pip install -r requirements.lock
+          pip install -e . --no-deps
           pip install pip-audit
 
       - name: Ruff lint
@@ -56,7 +61,8 @@ jobs:
         run: pytest tests/ -v
 
       - name: pip-audit
-        # Surface known CVEs in declared dependencies. Non-blocking for
-        # now (ignore-vuln list can be tuned once the project has a
-        # security policy in place).
-        run: pip-audit --desc --strict || true
+        # Blocking: a known CVE in the locked dependencies fails the build.
+        # If a finding has no fix yet and we accept the risk, add an explicit
+        # `--ignore-vuln <ID>` with a comment explaining why — never `|| true`.
+        # (--no-deps is safe here: the lockfile pins every transitive.)
+        run: pip-audit --desc --strict --no-deps -r requirements.lock
