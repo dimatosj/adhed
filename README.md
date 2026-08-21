@@ -5,6 +5,8 @@
 [![CI](https://github.com/dimatosj/adhed/actions/workflows/ci.yml/badge.svg)](https://github.com/dimatosj/adhed/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Tests: 252](https://img.shields.io/badge/tests-252%20passing-brightgreen.svg)](https://github.com/dimatosj/adhed/actions/workflows/ci.yml)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 ADHED is a self-hosted REST API for task management with a
 deterministic, server-side rules engine. No UI — API only.
@@ -12,8 +14,16 @@ Designed for bots, agents, and scripts, not humans clicking buttons.
 
 ## Why this exists
 
-Linear, Notion, Todoist, and friends are UI-first. Their APIs are
- great, but the agents don't need the GUI. 
+Agents are terrible clients of UI-first trackers. Linear, Notion,
+and Todoist assume a human is looking at the screen; their APIs are
+bolt-ons, and every guardrail lives in the frontend — which an agent
+never renders. When five agents and one human write to the same
+backlog, the constraints have to live **in the server**, or they
+don't exist.
+
+ADHED inverts the design: no UI at all, and the rules engine, state
+machine, and audit trail are enforced on every write, no matter who
+— or what — is writing.
 
 ADHED is:
 
@@ -125,6 +135,23 @@ Write a rule once, and it runs on every write. Examples:
 - *"When an issue is assigned, notify the assignee."*
 
 See [Rules Engine](docs/rules-engine.md) for the full DSL.
+
+## Fragments: typed context for agents
+
+Task trackers remember *what to do*. Agents also need to remember
+*what they know* — the plumber's number, the Wi-Fi password, the
+decision about quartz countertops. ADHED makes this first-class:
+**fragments** are typed notes (`person`, `place`, `credential`,
+`memory`, `idea`, `resource`, `journal`) with topics, domains,
+full-text search, and typed **links** to issues and projects.
+
+A chat agent that captures "Tony from Ace Plumbing was great" as a
+`person` fragment today can answer "who fixed our leak?" next month —
+across sessions, across agents, from the same database the task
+queue lives in.
+
+See [Fragments](docs/fragments.md) and the
+[fragment-links design](docs/superpowers/specs/2026-04-24-fragment-links-design.md).
 
 ## Integrations
 
